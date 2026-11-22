@@ -30,6 +30,8 @@ public sealed class JobDTO
     /// <summary>Earliest time the job may be scheduled (retry back-off).</summary>
     public DateTimeOffset NextAttemptUtc { get; set; }
     public DateTimeOffset? AssignedUtc { get; set; }
+    /// <summary>When the assignment was handed to the worker through a poll (null = not delivered yet).</summary>
+    public DateTimeOffset? DeliveredUtc { get; set; }
     /// <summary>When the worker's claim on the job expires if it never reports back.</summary>
     public DateTimeOffset? LeaseExpiresUtc { get; set; }
     public DateTimeOffset? StartedUtc { get; set; }

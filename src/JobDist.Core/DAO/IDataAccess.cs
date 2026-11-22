@@ -26,8 +26,11 @@ public interface IJobDAO
     /// <returns>Page of jobs (newest first) and the total count.</returns>
     Task<(IReadOnlyList<JobDTO> Items, int Total)> QueryAsync(JobQueryDTO query, CancellationToken ct = default);
 
-    /// <summary>Pending jobs whose run time / back-off elapsed, highest priority first, oldest first.</summary>
-    Task<IReadOnlyList<JobDTO>> GetReadyPendingAsync(DateTimeOffset now, int take, CancellationToken ct = default);
+    /// <summary>
+    /// Pending jobs whose run time / back-off elapsed, ordered by effective priority
+    /// (priority + min(100, waited minutes × <paramref name="agingPointsPerMinute"/>)) then oldest first.
+    /// </summary>
+    Task<IReadOnlyList<JobDTO>> GetReadyPendingAsync(DateTimeOffset now, int take, double agingPointsPerMinute, CancellationToken ct = default);
 
     /// <summary>
     /// Atomically applies scheduler decisions: sets each job to Assigned (only if still Pending with the expected version)
@@ -42,9 +45,6 @@ public interface IJobDAO
     /// <summary>Updates a job if its version still matches (optimistic concurrency). Increments the version.</summary>
     /// <returns><c>true</c> when updated.</returns>
     Task<bool> TryUpdateAsync(JobDTO job, CancellationToken ct = default);
-
-    /// <summary>Extends the lease of the jobs a worker reports as running.</summary>
-    Task ExtendLeasesAsync(Guid workerId, IReadOnlyCollection<Guid> jobIds, DateTimeOffset leaseUntil, CancellationToken ct = default);
 
     /// <summary>Jobs currently held (Assigned / Running / CancelRequested) by a worker.</summary>
     Task<IReadOnlyList<JobDTO>> GetHeldByWorkerAsync(Guid workerId, CancellationToken ct = default);

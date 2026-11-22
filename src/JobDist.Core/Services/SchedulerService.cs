@@ -51,7 +51,7 @@ public sealed class SchedulerService(
         var now = time.GetUtcNow();
 
         // Step 1: ready jobs (highest priority first). Nothing to do => cheap exit.
-        var ready = await jobs.GetReadyPendingAsync(now, o.SchedulerBatchSize, ct).ConfigureAwait(false);
+        var ready = await jobs.GetReadyPendingAsync(now, o.SchedulerBatchSize, o.AgingPointsPerMinute, ct).ConfigureAwait(false);
         if (ready.Count == 0)
         {
             return 0;

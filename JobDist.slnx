@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/JobDist.Contracts/JobDist.Contracts.csproj" />
+    <Project Path="src/JobDist.Core/JobDist.Core.csproj" />
+    <Project Path="src/JobDist.Infrastructure/JobDist.Infrastructure.csproj" />
+  </Folder>
+</Solution>
