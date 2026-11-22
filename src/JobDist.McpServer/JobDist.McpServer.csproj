@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- MCP server over stdio for desktop AI clients (Claude Desktop, Claude Code, VS Code, GitHub Copilot ...). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>JobDist.McpServer</RootNamespace>
+    <UserSecretsId>jobdist-mcp</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JobDist.Infrastructure\JobDist.Infrastructure.csproj" />
+    <ProjectReference Include="..\JobDist.Mcp\JobDist.Mcp.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

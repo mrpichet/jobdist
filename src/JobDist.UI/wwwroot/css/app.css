@@ -1,0 +1,13 @@
+html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+.jd-loading { padding: 2rem; color: #555; }
+.jd-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.jd-header { display: flex; align-items: center; gap: 1rem; padding: .5rem 1rem; border-bottom: 1px solid rgba(0,0,0,.1); }
+.jd-header h1 { font-size: 1.15rem; margin: 0 1rem 0 0; }
+.jd-content { padding: 1rem; flex: 1; }
+.jd-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.jd-card { border: 1px solid rgba(0,0,0,.12); border-radius: 8px; padding: .75rem 1rem; }
+.jd-card .label { font-size: .8rem; opacity: .7; }
+.jd-card .value { font-size: 1.6rem; font-weight: 600; }
+.jd-error { color: #b00020; margin: .5rem 0; }
+.jd-toolbar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .75rem; }
+#blazor-error-ui { display: none; position: fixed; bottom: 0; width: 100%; background: #ffe; padding: .6rem 1rem; box-shadow: 0 -1px 2px rgba(0,0,0,.2); }

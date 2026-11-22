@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    JobDist.Mcp: AI tool definitions built with Microsoft.Extensions.AI (AIFunctionFactory) and exposed to MCP clients
+    through the official ModelContextProtocol C# SDK. Shared by the HTTP host (JobDist.Server) and the stdio host.
+  -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.Mcp</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JobDist.Core\JobDist.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+</Project>

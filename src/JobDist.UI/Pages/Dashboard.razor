@@ -1,0 +1,65 @@
+@page "/"
+@inject JobDistApi Api
+@implements IDisposable
+
+<h1>Cluster overview</h1>
+@if (_error is not null) { <div class="jd-error">@_error</div> }
+@if (_summary is not null)
+{
+    <div class="jd-cards">
+        <div class="jd-card"><div class="label">Workers online</div><div class="value">@_summary.WorkersOnline</div></div>
+        <div class="jd-card"><div class="label">Draining / offline</div><div class="value">@_summary.WorkersDraining / @_summary.WorkersOffline</div></div>
+        <div class="jd-card"><div class="label">Total capacity</div><div class="value">@_summary.TotalCapacity</div></div>
+        <div class="jd-card"><div class="label">Active jobs</div><div class="value">@_summary.ActiveJobs</div></div>
+        <div class="jd-card"><div class="label">Pending</div><div class="value">@_summary.JobsByStatus.GetValueOrDefault("Pending")</div></div>
+        <div class="jd-card"><div class="label">HA leader</div><div class="value" style="font-size:1rem">@(_summary.LeaderInstance ?? "electing…")</div></div>
+    </div>
+
+    <DxChart T="Bar" Data="@_byStatus" Height="300px">
+        <DxChartTitle Text="Jobs by status" />
+        <DxChartBarSeries T="Bar" TArgument="string" TValue="int" ArgumentField="@(b => b.Name)" ValueField="@(b => b.Count)" Name="Jobs" />
+        <DxChartLegend Visible="false" />
+    </DxChart>
+
+    <h2>Pending by job type</h2>
+    <DxGrid Data="@_pending" ShowFilterRow="false" PageSize="10">
+        <Columns>
+            <DxGridDataColumn FieldName="Name" Caption="Job type" />
+            <DxGridDataColumn FieldName="Count" Caption="Pending" Width="140px" />
+        </Columns>
+    </DxGrid>
+}
+
+@code {
+    private ClusterSummary? _summary;
+    private List<Bar> _byStatus = [];
+    private List<Bar> _pending = [];
+    private string? _error;
+    private Timer? _timer;
+
+    public sealed record Bar(string Name, int Count);
+
+    /// <summary>Loads the summary and refreshes it every 5 seconds.</summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _timer = new Timer(_ => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _summary = await Api.GetSummaryAsync();
+            _byStatus = _summary!.JobsByStatus.Select(kv => new Bar(kv.Key, kv.Value)).ToList();
+            _pending = _summary.PendingByType.Select(kv => new Bar(kv.Key, kv.Value)).OrderByDescending(b => b.Count).ToList();
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

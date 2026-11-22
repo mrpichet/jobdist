@@ -1,0 +1,62 @@
+@inherits LayoutComponentBase
+@inject ApiKeyStore Keys
+@implements IDisposable
+
+<div class="jd-shell">
+    <header class="jd-header">
+        <h1>JobDist Console</h1>
+        <DxMenu Orientation="Orientation.Horizontal" DisplayMode="MenuDisplayMode.Auto">
+            <Items>
+                <DxMenuItem Text="Dashboard" NavigateUrl="" />
+                <DxMenuItem Text="Jobs" NavigateUrl="jobs" />
+                <DxMenuItem Text="Workers" NavigateUrl="workers" />
+                <DxMenuItem Text="Anomalies &amp; ML" NavigateUrl="insights" />
+            </Items>
+        </DxMenu>
+        <div style="margin-left:auto; display:flex; gap:.5rem; align-items:center;">
+            @if (Keys.Key is null)
+            {
+                <DxTextBox @bind-Text="_keyInput" Password="true" NullText="API key" SizeMode="SizeMode.Small" Width="220px" />
+                <DxButton Text="Sign in" Click="SignInAsync" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small" />
+            }
+            else
+            {
+                <span>Signed in</span>
+                <DxButton Text="Sign out" Click="SignOutAsync" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+            }
+        </div>
+    </header>
+    <main class="jd-content">
+        @if (Keys.Key is null)
+        {
+            <p>Enter an API key with the <b>Viewer</b>, <b>Submitter</b> or <b>Admin</b> role to use the console. The key stays in this browser tab only.</p>
+        }
+        else
+        {
+            @Body
+        }
+    </main>
+</div>
+
+@code {
+    private string? _keyInput;
+
+    /// <summary>Loads a key saved earlier in this tab.</summary>
+    protected override async Task OnInitializedAsync()
+    {
+        Keys.Changed += OnKeyChanged;
+        await Keys.LoadAsync();
+    }
+
+    private async Task SignInAsync()
+    {
+        await Keys.SetAsync(_keyInput);
+        _keyInput = null;
+    }
+
+    private Task SignOutAsync() => Keys.SetAsync(null);
+
+    private void OnKeyChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Keys.Changed -= OnKeyChanged;
+}

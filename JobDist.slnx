@@ -3,5 +3,22 @@
     <Project Path="src/JobDist.Contracts/JobDist.Contracts.csproj" />
     <Project Path="src/JobDist.Core/JobDist.Core.csproj" />
     <Project Path="src/JobDist.Infrastructure/JobDist.Infrastructure.csproj" />
+    <Project Path="src/JobDist.Mcp/JobDist.Mcp.csproj" />
+    <Project Path="src/JobDist.ServiceDefaults/JobDist.ServiceDefaults.csproj" />
+    <Project Path="src/JobDist.Server/JobDist.Server.csproj" />
+    <Project Path="src/JobDist.McpServer/JobDist.McpServer.csproj" />
+    <Project Path="src/JobDist.UI/JobDist.UI.csproj" />
+    <Project Path="src/JobDist.Client/JobDist.Client.csproj" />
+    <Project Path="src/JobDist.Worker.Sdk/JobDist.Worker.Sdk.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/JobDist.SampleWorker/JobDist.SampleWorker.csproj" />
+    <Project Path="samples/JobDist.AiClientSample/JobDist.AiClientSample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JobDist.Tests/JobDist.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/JobDist.ApiExport/JobDist.ApiExport.csproj" />
   </Folder>
 </Solution>

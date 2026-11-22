@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    JobDist.Client: SDK for projects that SUBMIT jobs. Reference it (or the NuGet package) and call IJobDistClient.
+    Built on HttpClient / IHttpClientFactory only; fails over between several server URLs (HA).
+  -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.Client</RootNamespace>
+    <PackageId>JobDist.Client</PackageId>
+    <Description>Client SDK to submit, monitor, re-prioritise and cancel jobs on a JobDist cluster.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JobDist.Contracts\JobDist.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+</Project>

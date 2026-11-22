@@ -1,0 +1,67 @@
+@page "/workers"
+@inject JobDistApi Api
+
+<h1>Workers</h1>
+<div class="jd-toolbar"><DxButton Text="Refresh" Click="LoadAsync" RenderStyle="ButtonRenderStyle.Secondary" /></div>
+@if (_error is not null) { <div class="jd-error">@_error</div> }
+
+<DxGrid Data="@_workers" PageSize="20" KeyFieldName="WorkerId" FocusedRowEnabled="true" FocusedRowChanged="OnFocusedRowChanged">
+    <Columns>
+        <DxGridDataColumn FieldName="Name" />
+        <DxGridDataColumn FieldName="Status" Width="110px" />
+        <DxGridDataColumn FieldName="ActiveJobs" Caption="Active" Width="80px" />
+        <DxGridDataColumn FieldName="MaxTotalConcurrency" Caption="Slots" Width="80px" />
+        <DxGridDataColumn FieldName="CpuUsagePercent" Caption="CPU %" DisplayFormat="N0" Width="80px" />
+        <DxGridDataColumn FieldName="MemoryUsagePercent" Caption="Mem %" DisplayFormat="N0" Width="80px" />
+        <DxGridDataColumn FieldName="OfflineCount" Caption="Offline #" Width="90px" />
+        <DxGridDataColumn FieldName="SupportsPqc" Caption="PQC" Width="70px" />
+        <DxGridDataColumn FieldName="LastHeartbeatUtc" Caption="Last heartbeat (UTC)" DisplayFormat="HH:mm:ss" />
+        <DxGridDataColumn Caption="Job types">
+            <CellDisplayTemplate>
+                @{ var w = (WorkerResponse)context.DataItem; }
+                @string.Join(", ", w.Capabilities.Select(c => $"{c.JobType}×{c.MaxConcurrency}"))
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@if (_selected is not null)
+{
+    <h2>@_selected.Name</h2>
+    <p>@_selected.Spec.CpuCores cores, @(_selected.Spec.MemoryMb / 1024.0) GB RAM, @_selected.Spec.GpuCount GPU, benchmark @_selected.Spec.BenchmarkScore, @_selected.Spec.Os</p>
+    <DxButton Text="Drain" Click="DrainAsync" RenderStyle="ButtonRenderStyle.Warning" Enabled="@(_selected.Status == WorkerStatus.Online)" />
+    @if (_risk is not null)
+    {
+        <p><b>Health risk:</b> @_risk.Score (@_risk.Level) - @_risk.Recommendation</p>
+        <ul>@foreach (var f in _risk.Factors) { <li>+@f.Points: @f.Explanation</li> }</ul>
+    }
+}
+
+@code {
+    private List<WorkerResponse> _workers = [];
+    private WorkerResponse? _selected;
+    private RiskAssessment? _risk;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try { _workers = await Api.GetWorkersAsync() ?? []; _error = null; }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task OnFocusedRowChanged(GridFocusedRowChangedEventArgs e)
+    {
+        _selected = e.DataItem as WorkerResponse;
+        if (_selected is null) return;
+        try { _risk = await Api.GetWorkerRiskAsync(_selected.WorkerId); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task DrainAsync()
+    {
+        try { await Api.DrainAsync(_selected!.WorkerId); await LoadAsync(); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+}
