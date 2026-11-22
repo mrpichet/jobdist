@@ -1,0 +1,171 @@
+@page "/jobs"
+@inject JobDistApi Api
+
+<h1>Jobs</h1>
+<div class="jd-toolbar">
+    <DxComboBox Data="@_statuses" @bind-Value="_status" NullText="All statuses" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Width="180px" />
+    <DxTextBox @bind-Text="_jobType" NullText="Job type" Width="180px" />
+    <DxButton Text="Refresh" Click="LoadAsync" RenderStyle="ButtonRenderStyle.Secondary" />
+    <DxButton Text="Submit job" Click="() => _submitVisible = true" RenderStyle="ButtonRenderStyle.Primary" />
+</div>
+@if (_error is not null) { <div class="jd-error">@_error</div> }
+
+<DxGrid Data="@_jobs" PageSize="20" ShowFilterRow="true" FocusedRowEnabled="true" FocusedRowChanged="OnFocusedRowChanged" KeyFieldName="JobId">
+    <Columns>
+        <DxGridDataColumn FieldName="JobType" Caption="Type" />
+        <DxGridDataColumn FieldName="Status" />
+        <DxGridDataColumn FieldName="Priority" Width="90px" />
+        <DxGridDataColumn FieldName="Attempt" Caption="Attempt" Width="90px" />
+        <DxGridDataColumn FieldName="MaxAttempts" Caption="Max" Width="70px" />
+        <DxGridDataColumn FieldName="AssignedWorkerId" Caption="Worker" />
+        <DxGridDataColumn FieldName="CreatedUtc" Caption="Created (UTC)" DisplayFormat="yyyy-MM-dd HH:mm:ss" />
+        <DxGridDataColumn FieldName="LastDurationMs" Caption="Duration ms" DisplayFormat="N0" Width="120px" />
+        <DxGridDataColumn FieldName="LastError" Caption="Last error" />
+    </Columns>
+</DxGrid>
+
+@if (_selected is not null)
+{
+    <h2>Job @_selected.JobId</h2>
+    <div class="jd-toolbar">
+        <span>Priority</span>
+        <DxSpinEdit @bind-Value="_newPriority" MinValue="0" MaxValue="100" Width="100px" />
+        <DxButton Text="Change priority" Click="ChangePriorityAsync" Enabled="@(!IsTerminal(_selected))" />
+        <DxButton Text="Cancel job" Click="CancelAsync" RenderStyle="ButtonRenderStyle.Danger" Enabled="@(!IsTerminal(_selected))" />
+    </div>
+    @if (_risk is not null)
+    {
+        <p><b>Risk:</b> @_risk.Score (@_risk.Level) - @_risk.Recommendation</p>
+        <ul>@foreach (var f in _risk.Factors) { <li>+@f.Points: @f.Explanation</li> }</ul>
+    }
+    <h3>Distribution history</h3>
+    <DxGrid Data="@_attempts" PageSize="10">
+        <Columns>
+            <DxGridDataColumn FieldName="Attempt" Width="80px" />
+            <DxGridDataColumn FieldName="WorkerName" Caption="Worker" />
+            <DxGridDataColumn FieldName="Outcome" />
+            <DxGridDataColumn FieldName="QueueWaitMs" Caption="Queue wait ms" DisplayFormat="N0" />
+            <DxGridDataColumn FieldName="DurationMs" Caption="Duration ms" DisplayFormat="N0" />
+            <DxGridDataColumn FieldName="SchedulerScore" Caption="Score" DisplayFormat="N3" />
+            <DxGridDataColumn FieldName="Error" />
+        </Columns>
+    </DxGrid>
+}
+
+<DxPopup @bind-Visible="_submitVisible" HeaderText="Submit job" Width="560px" ShowFooter="true">
+    <BodyContentTemplate Context="popupBody">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="Job type" ColSpanMd="12"><DxTextBox @bind-Text="_form.JobType" /></DxFormLayoutItem>
+            <DxFormLayoutItem Caption="Payload (JSON)" ColSpanMd="12"><DxMemo @bind-Text="_form.Payload" Rows="4" /></DxFormLayoutItem>
+            <DxFormLayoutItem Caption="Priority" ColSpanMd="6"><DxSpinEdit @bind-Value="_form.Priority" MinValue="0" MaxValue="100" /></DxFormLayoutItem>
+            <DxFormLayoutItem Caption="Max attempts" ColSpanMd="6"><DxSpinEdit @bind-Value="_form.MaxAttempts" MinValue="1" MaxValue="20" /></DxFormLayoutItem>
+            <DxFormLayoutItem Caption="Target worker id" ColSpanMd="8"><DxTextBox @bind-Text="_form.TargetWorkerId" NullText="optional GUID" /></DxFormLayoutItem>
+            <DxFormLayoutItem Caption="Strict target" ColSpanMd="4"><DxCheckBox @bind-Checked="_form.StrictTarget" /></DxFormLayoutItem>
+            <DxFormLayoutItem Caption="Sensitive (PQC envelope)" ColSpanMd="12"><DxCheckBox @bind-Checked="_form.Sensitive" /></DxFormLayoutItem>
+        </DxFormLayout>
+        @if (_submitError is not null) { <div class="jd-error">@_submitError</div> }
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popupFooter">
+        <DxButton Text="Submit" Click="SubmitAsync" RenderStyle="ButtonRenderStyle.Primary" />
+        <DxButton Text="Close" Click="() => _submitVisible = false" RenderStyle="ButtonRenderStyle.Secondary" />
+    </FooterContentTemplate>
+</DxPopup>
+
+@code {
+    private readonly JobStatus[] _statuses = Enum.GetValues<JobStatus>();
+    private JobStatus? _status;
+    private string? _jobType;
+    private List<JobStatusResponse> _jobs = [];
+    private JobStatusResponse? _selected;
+    private List<JobAttemptResponse> _attempts = [];
+    private RiskAssessment? _risk;
+    private int _newPriority;
+    private string? _error;
+    private bool _submitVisible;
+    private string? _submitError;
+    private SubmitForm _form = new();
+
+    /// <summary>Editable model of the submit form.</summary>
+    private sealed class SubmitForm
+    {
+        public string? JobType { get; set; }
+        public string? Payload { get; set; }
+        public int Priority { get; set; } = 50;
+        public int MaxAttempts { get; set; } = 3;
+        public string? TargetWorkerId { get; set; }
+        public bool StrictTarget { get; set; }
+        public bool Sensitive { get; set; }
+    }
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _jobs = (await Api.GetJobsAsync(_status, _jobType, 500))?.Items.ToList() ?? [];
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task OnFocusedRowChanged(GridFocusedRowChangedEventArgs e)
+    {
+        _selected = e.DataItem as JobStatusResponse;
+        if (_selected is null) return;
+        _newPriority = _selected.Priority;
+        try
+        {
+            _attempts = await Api.GetAttemptsAsync(_selected.JobId) ?? [];
+            _risk = IsTerminal(_selected) ? null : await Api.GetJobRiskAsync(_selected.JobId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ChangePriorityAsync()
+    {
+        try { _selected = await Api.ChangePriorityAsync(_selected!.JobId, _newPriority); await LoadAsync(); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task CancelAsync()
+    {
+        try { _selected = await Api.CancelAsync(_selected!.JobId, "Cancelled from console"); await LoadAsync(); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task SubmitAsync()
+    {
+        // Step 1: client-side checks (the server validates again).
+        Guid? target = null;
+        if (!string.IsNullOrWhiteSpace(_form.TargetWorkerId))
+        {
+            if (!Guid.TryParse(_form.TargetWorkerId, out var t)) { _submitError = "Target worker id must be a GUID."; return; }
+            target = t;
+        }
+        if (string.IsNullOrWhiteSpace(_form.JobType)) { _submitError = "Job type is required."; return; }
+
+        // Step 2: submit with an idempotency key so a double click does not create two jobs.
+        try
+        {
+            await Api.SubmitAsync(new SubmitJobRequest(_form.JobType, _form.Payload, _form.Priority, target, _form.StrictTarget, _form.MaxAttempts,
+                IdempotencyKey: Guid.NewGuid().ToString("N"), Sensitive: _form.Sensitive));
+            _submitVisible = false;
+            _submitError = null;
+            _form = new();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _submitError = ex.Message;
+        }
+    }
+
+    private static bool IsTerminal(JobStatusResponse j) => j.Status is JobStatus.Succeeded or JobStatus.Failed or JobStatus.Cancelled;
+}

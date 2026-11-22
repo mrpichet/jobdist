@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "JobDist.SampleWorker": {
+      "commandName": "Project",
+      "environmentVariables": { "DOTNET_ENVIRONMENT": "Development" }
+    }
+  }
+}
