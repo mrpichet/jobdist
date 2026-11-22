@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    JobDist.Contracts: wire contracts shared by the server, the job-submission client SDK and the worker SDK.
+    No third-party dependencies (BCL only) so any project can reference it safely.
+  -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.Contracts</RootNamespace>
+    <PackageId>JobDist.Contracts</PackageId>
+    <Description>Wire contracts and PQC primitives for the JobDist distributed job scheduler.</Description>
+  </PropertyGroup>
+</Project>
