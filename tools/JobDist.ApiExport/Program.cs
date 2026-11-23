@@ -142,7 +142,7 @@ md.AppendLine();
 WriteTypes(md, contractTypes);
 md.AppendLine("## SDKs");
 md.AppendLine();
-md.AppendLine("- **Submit jobs** from another project: reference `JobDist.Client`, `services.AddJobDistClient(configuration)` (section `JobDistClient`), inject `IJobDistClient`.");
+md.AppendLine("- **Submit jobs** from another project: reference `JobDist.Client`, `services.AddJobDistClient(configuration.GetSection(\"JobDistClient\"))`, inject `IJobDistClient`.");
 md.AppendLine("- **Implement a worker**: reference `JobDist.Worker.Sdk`, implement `IJobHandler`, `services.AddJobDistWorker(configuration).AddJobHandler<MyHandler>()` (section `JobDistWorker`).");
 md.AppendLine();
 WriteTypes(md, sdkTypes);

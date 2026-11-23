@@ -28,8 +28,10 @@ RUN dotnet restore src/JobDist.Server/JobDist.Server.csproj
 COPY db/ db/
 COPY src/ src/
 RUN --mount=type=secret,id=devexpress_license,required=false \
-    if [ -f /run/secrets/devexpress_license ]; then export DevExpress_License="$(cat /run/secrets/devexpress_license)"; fi; \
-    dotnet publish src/JobDist.Server/JobDist.Server.csproj -c Release -o /app --no-restore /p:UseAppHost=false /p:DebugType=None
+    set -e; \
+    if [ -s /run/secrets/devexpress_license ]; then mkdir -p /root/.config/DevExpress && cp /run/secrets/devexpress_license /root/.config/DevExpress/DevExpress_License.txt; fi; \
+    dotnet publish src/JobDist.Server/JobDist.Server.csproj -c Release -o /app --no-restore /p:UseAppHost=false /p:DebugType=None; \
+    rm -rf /root/.config/DevExpress
 
 FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine-extra AS final
 ENV ASPNETCORE_URLS=http://+:8080 \
