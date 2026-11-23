@@ -1,0 +1,40 @@
+# Override: use SQL Server instead of PostgreSQL.
+#   docker compose -f docker-compose.yml -f docker-compose.sqlserver.yml up -d --build
+services:
+  server-a: &sql-server-env
+    environment:
+      Database__Provider: SqlServer
+      Database__ConnectionString: "Server=sqlserver,1433;Database=JobDist;User Id=sa;Password=${MSSQL_SA_PASSWORD};Encrypt=True;TrustServerCertificate=True;Max Pool Size=200"
+    depends_on:
+      sqlserver: { condition: service_healthy }
+  server-b: *sql-server-env
+
+  postgres:
+    profiles: [disabled]
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    user: "10001"                   # image's built-in non-root mssql user
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]     # sqlservr carries this file capability; required to start
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env}
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks: [backend]
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 2g }
+
+volumes:
+  sqldata: {}

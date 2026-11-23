@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS workers
     maxtotalconcurrency INT           NOT NULL,
     tokenhash           BYTEA         NOT NULL,   -- SHA-256 of the worker token
     ecdhpublickey       VARCHAR(512)  NULL,
-    mlkempublickey      VARCHAR(4096) NULL,
+    mlkempublickey      VARCHAR(2048) NULL,
     version             VARCHAR(50)   NULL,
     tags                TEXT          NOT NULL,
     registeredutc       TIMESTAMPTZ   NOT NULL,

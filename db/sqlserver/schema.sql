@@ -14,7 +14,7 @@ BEGIN
         MaxTotalConcurrency INT              NOT NULL,
         TokenHash           VARBINARY(32)    NOT NULL,   -- SHA-256 of the worker token (token never stored)
         EcdhPublicKey       NVARCHAR(512)    NULL,
-        MlKemPublicKey      NVARCHAR(4096)   NULL,
+        MlKemPublicKey      VARCHAR(2048)    NULL,
         Version             NVARCHAR(50)     NULL,
         Tags                NVARCHAR(2000)   NOT NULL,
         RegisteredUtc       DATETIMEOFFSET(3) NOT NULL,
