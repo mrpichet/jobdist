@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Generates docs/API_EXPORT.md + docs/api-export.json: a machine-readable summary of every REST endpoint, MCP/AI tool,
+    contract record and SDK interface, so Claude (or other AI assistants) in other projects know what JobDist offers.
+    Run: dotnet run (project tools/JobDist.ApiExport) with the output folder as argument, e.g. docs
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>JobDist.ApiExport</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JobDist.Server\JobDist.Server.csproj" />
+    <ProjectReference Include="..\..\src\JobDist.Client\JobDist.Client.csproj" />
+    <ProjectReference Include="..\..\src\JobDist.Worker.Sdk\JobDist.Worker.Sdk.csproj" />
+  </ItemGroup>
+</Project>
