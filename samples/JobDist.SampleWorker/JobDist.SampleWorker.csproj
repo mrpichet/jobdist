@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <!-- Example worker: shows how another project implements job handlers with JobDist.Worker.Sdk. -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.SampleWorker</RootNamespace>
+    <UserSecretsId>jobdist-sample-worker</UserSecretsId>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JobDist.Worker.Sdk\JobDist.Worker.Sdk.csproj" />
+    <ProjectReference Include="..\..\src\JobDist.ServiceDefaults\JobDist.ServiceDefaults.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+</Project>

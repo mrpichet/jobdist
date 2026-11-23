@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================================
+# JobDist sample worker image (samples/JobDist.SampleWorker). Copy this file for your own worker project.
+# Same hardening as the server: multi-stage, Alpine -extra (OpenSSL 3.5 → ML-KEM for encrypted payloads),
+# non-root, read-only app files, read-only root FS friendly. Workers only make outbound calls: no ports exposed.
+# Build:  docker build -f docker/Dockerfile.worker -t jobdist-worker .
+# =============================================================================================
+ARG DOTNET_VERSION=10.0
+
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION}-alpine AS build
+WORKDIR /src
+COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY src/JobDist.Contracts/JobDist.Contracts.csproj src/JobDist.Contracts/
+COPY src/JobDist.Worker.Sdk/JobDist.Worker.Sdk.csproj src/JobDist.Worker.Sdk/
+COPY src/JobDist.ServiceDefaults/JobDist.ServiceDefaults.csproj src/JobDist.ServiceDefaults/
+COPY samples/JobDist.SampleWorker/JobDist.SampleWorker.csproj samples/JobDist.SampleWorker/
+RUN dotnet restore samples/JobDist.SampleWorker/JobDist.SampleWorker.csproj
+COPY src/JobDist.Contracts/ src/JobDist.Contracts/
+COPY src/JobDist.Worker.Sdk/ src/JobDist.Worker.Sdk/
+COPY src/JobDist.ServiceDefaults/ src/JobDist.ServiceDefaults/
+COPY samples/JobDist.SampleWorker/ samples/JobDist.SampleWorker/
+RUN dotnet publish samples/JobDist.SampleWorker/JobDist.SampleWorker.csproj -c Release -o /app --no-restore /p:UseAppHost=false /p:DebugType=None
+
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine-extra AS final
+ENV DOTNET_ENVIRONMENT=Production \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    DOTNET_EnableDiagnostics=0 \
+    DOTNET_gcServer=1 \
+    DOTNET_TieredPGO=1
+WORKDIR /app
+COPY --from=build --chown=root:root --chmod=0555 /app .
+USER $APP_UID
+ENTRYPOINT ["dotnet", "JobDist.SampleWorker.dll"]

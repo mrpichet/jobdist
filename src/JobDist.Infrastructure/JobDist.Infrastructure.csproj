@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    JobDist.Infrastructure: *ADO repository implementations (Dapper on SQL Server / PostgreSQL, plus in-memory),
+    database initialisation, admin alerts through mrpichet/messagehub, background workers (leader, scheduler,
+    fail-over, anomaly scan, model training, housekeeping) and DI registration.
+  -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JobDist.Core\JobDist.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\db\sqlserver\schema.sql" LogicalName="JobDist.sqlserver.schema.sql" />
+    <EmbeddedResource Include="..\..\db\postgres\schema.sql" LogicalName="JobDist.postgres.schema.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="JobDist.Tests" />
+  </ItemGroup>
+</Project>

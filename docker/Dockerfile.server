@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================================
+# JobDist.Server image: REST API + MCP (Streamable HTTP) + Blazor WebAssembly UI in one process.
+# Hardening:
+#  - multi-stage build: the SDK never ships in the runtime image
+#  - Alpine "-extra" runtime: small attack surface, ICU + tzdata (SqlClient), OpenSSL 3.5 → .NET 10 ML-DSA / ML-KEM (PQC)
+#  - runs as the non-root "app" user (APP_UID); application files owned by root and read-only (0555)
+#  - no shell needed at runtime, diagnostics IPC disabled, works with a read-only root file system
+#  - DevExpress license key (optional) comes in as a BuildKit secret, never as a layer / build arg
+# Build:  docker build -f docker/Dockerfile.server -t jobdist-server .
+#         docker build -f docker/Dockerfile.server --secret id=devexpress_license,src=$HOME/DevExpress_License.txt -t jobdist-server .
+# =============================================================================================
+ARG DOTNET_VERSION=10.0
+
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION}-alpine AS build
+WORKDIR /src
+# Restore first (cached layer) using only project files.
+COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY src/JobDist.Contracts/JobDist.Contracts.csproj src/JobDist.Contracts/
+COPY src/JobDist.Core/JobDist.Core.csproj src/JobDist.Core/
+COPY src/JobDist.Infrastructure/JobDist.Infrastructure.csproj src/JobDist.Infrastructure/
+COPY src/JobDist.Mcp/JobDist.Mcp.csproj src/JobDist.Mcp/
+COPY src/JobDist.ServiceDefaults/JobDist.ServiceDefaults.csproj src/JobDist.ServiceDefaults/
+COPY src/JobDist.UI/JobDist.UI.csproj src/JobDist.UI/
+COPY src/JobDist.Server/JobDist.Server.csproj src/JobDist.Server/
+RUN dotnet restore src/JobDist.Server/JobDist.Server.csproj
+# Then the sources (db/ holds the embedded schema scripts).
+COPY db/ db/
+COPY src/ src/
+RUN --mount=type=secret,id=devexpress_license,required=false \
+    set -e; \
+    if [ -s /run/secrets/devexpress_license ]; then mkdir -p /root/.config/DevExpress && cp /run/secrets/devexpress_license /root/.config/DevExpress/DevExpress_License.txt; fi; \
+    dotnet publish src/JobDist.Server/JobDist.Server.csproj -c Release -o /app --no-restore /p:UseAppHost=false /p:DebugType=None; \
+    rm -rf /root/.config/DevExpress
+
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine-extra AS final
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_ENVIRONMENT=Production \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    DOTNET_EnableDiagnostics=0 \
+    DOTNET_gcServer=1 \
+    DOTNET_TieredPGO=1
+WORKDIR /app
+COPY --from=build --chown=root:root --chmod=0555 /app .
+USER $APP_UID
+EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:8080/alive || exit 1
+ENTRYPOINT ["dotnet", "JobDist.Server.dll"]

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!--
+    JobDist.Server: one process, three front doors over the same business layer:
+      REST Web API (ASP.NET Core controllers) /api/*, MCP server (Streamable HTTP) /mcp, Blazor WebAssembly UI /.
+  -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.Server</RootNamespace>
+    <UserSecretsId>jobdist-server</UserSecretsId>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JobDist.Infrastructure\JobDist.Infrastructure.csproj" />
+    <ProjectReference Include="..\JobDist.Mcp\JobDist.Mcp.csproj" />
+    <ProjectReference Include="..\JobDist.ServiceDefaults\JobDist.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\JobDist.UI\JobDist.UI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="JobDist.Tests" />
+  </ItemGroup>
+</Project>

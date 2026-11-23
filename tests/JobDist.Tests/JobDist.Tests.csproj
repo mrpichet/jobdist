@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- MSTest unit tests for the business logic (in-memory DAO + FakeTimeProvider: fast, deterministic, no database needed). -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.Tests</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JobDist.Infrastructure\JobDist.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\JobDist.Mcp\JobDist.Mcp.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,173 @@
+# =============================================================================================
+# JobDist stack (HA): 2 × server (API + MCP + UI) · 2 × sample worker · PostgreSQL · .NET Aspire dashboard
+#   cp .env.example .env        # then generate every secret (see comments in .env.example)
+#   docker compose up -d --build
+#   SQL Server instead of PostgreSQL:
+#   docker compose -f docker-compose.yml -f docker-compose.sqlserver.yml up -d --build
+#
+# High availability: both servers are active (any one answers any request); a lease in the database elects the
+# single leader that runs scheduling / fail-over / anomaly scans, and another instance takes over within
+# LeaderLeaseSeconds if it dies. Clients and workers list BOTH server URLs and fail over themselves, so there is
+# no load balancer single point of failure. (For production, run the database itself in HA mode too.)
+#
+# Hardening: non-root, read-only root FS, all capabilities dropped, no-new-privileges, pids/memory/cpu limits,
+# database on an internal-only network, secrets from .env (never committed), host ports bound to 127.0.0.1.
+# =============================================================================================
+name: jobdist
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-server-env: &server-env
+  ASPNETCORE_ENVIRONMENT: Production
+  Database__Provider: ${DB_PROVIDER:-PostgreSql}
+  Database__ConnectionString: ${DB_CONNECTION_STRING:-Host=postgres;Port=5432;Database=jobdist;Username=jobdist;Password=${POSTGRES_PASSWORD};SSL Mode=Prefer;Maximum Pool Size=200}
+  Database__AutoMigrate: "true"
+  JobDist__PayloadProtectionKey: ${PAYLOAD_PROTECTION_KEY:?set PAYLOAD_PROTECTION_KEY in .env}
+  Crypto__KeyId: ${CRYPTO_KEY_ID:-jobdist-prod}
+  Crypto__MlDsaPrivateSeed: ${MLDSA_PRIVATE_SEED:?set MLDSA_PRIVATE_SEED in .env (shared by all servers)}
+  Crypto__EcdsaPrivateKeyPkcs8: ${ECDSA_PRIVATE_KEY_PKCS8:?set ECDSA_PRIVATE_KEY_PKCS8 in .env (shared by all servers)}
+  Security__ApiKeys__0__Name: admin
+  Security__ApiKeys__0__KeyHash: ${ADMIN_API_KEY_SHA256:?set ADMIN_API_KEY_SHA256 in .env}
+  Security__ApiKeys__0__Roles__0: Admin
+  Security__ApiKeys__1__Name: submitter
+  Security__ApiKeys__1__KeyHash: ${SUBMITTER_API_KEY_SHA256:?set SUBMITTER_API_KEY_SHA256 in .env}
+  Security__ApiKeys__1__Roles__0: Submitter
+  Security__ApiKeys__2__Name: worker-fleet
+  Security__ApiKeys__2__KeyHash: ${WORKER_API_KEY_SHA256:?set WORKER_API_KEY_SHA256 in .env}
+  Security__ApiKeys__2__Roles__0: Worker
+  Security__ApiKeys__3__Name: ai-agent
+  Security__ApiKeys__3__KeyHash: ${AI_AGENT_API_KEY_SHA256:-}
+  Security__ApiKeys__3__Roles__0: AiAgent
+  Security__ApiKeys__4__Name: viewer
+  Security__ApiKeys__4__KeyHash: ${VIEWER_API_KEY_SHA256:-}
+  Security__ApiKeys__4__Roles__0: Viewer
+  Mcp__AllowSideEffects: ${MCP_ALLOW_SIDE_EFFECTS:-false}
+  Alerts__MessageHub__Enabled: ${MESSAGEHUB_ENABLED:-false}
+  Alerts__MessageHub__BaseUrl: ${MESSAGEHUB_URL:-}
+  Alerts__MessageHub__ApiKey: ${MESSAGEHUB_API_KEY:-}
+  Alerts__MessageHub__Channel: ${MESSAGEHUB_CHANNEL:-Email}
+  Alerts__MessageHub__Recipients__0: ${ADMIN_ALERT_RECIPIENT:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+  OTEL_EXPORTER_OTLP_HEADERS: x-otlp-api-key=${OTLP_API_KEY:?set OTLP_API_KEY in .env}
+
+x-server: &server
+  <<: *hardening
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.server
+    secrets: [devexpress_license]
+  image: jobdist-server:latest
+  networks: [frontend, backend]
+  deploy:
+    resources:
+      limits: { cpus: "2.0", memory: 1g, pids: 512 }
+
+services:
+  server-a:
+    <<: *server
+    environment:
+      <<: *server-env
+      JobDist__InstanceId: server-a
+      OTEL_SERVICE_NAME: jobdist-server-a
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres: { condition: service_healthy, required: false }
+
+  server-b:
+    <<: *server
+    environment:
+      <<: *server-env
+      JobDist__InstanceId: server-b
+      OTEL_SERVICE_NAME: jobdist-server-b
+    ports:
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      postgres: { condition: service_healthy, required: false }
+
+  worker:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    image: jobdist-worker:latest
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      JobDistWorker__ServerUrls__0: http://server-a:8080
+      JobDistWorker__ServerUrls__1: http://server-b:8080
+      JobDistWorker__ApiKey: ${WORKER_API_KEY:?set WORKER_API_KEY in .env}
+      JobDistWorker__PinnedServerKeyId: ${CRYPTO_KEY_ID:-jobdist-prod}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_EXPORTER_OTLP_HEADERS: x-otlp-api-key=${OTLP_API_KEY}
+      OTEL_SERVICE_NAME: jobdist-worker
+    depends_on: [server-a, server-b]
+    networks: [frontend]
+    stop_grace_period: 30s
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
+      resources:
+        limits: { cpus: "2.0", memory: 512m, pids: 256 }
+
+  postgres:
+    <<: *hardening
+    image: postgres:17-alpine
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER]   # entrypoint switches to the postgres user
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /var/run/postgresql:rw,noexec,nosuid,size=16m
+    environment:
+      POSTGRES_DB: jobdist
+      POSTGRES_USER: jobdist
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobdist -d jobdist"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]   # internal network only, not reachable from the host
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 1g }
+
+  aspire-dashboard:
+    <<: *hardening
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    environment:
+      DASHBOARD__OTLP__AUTHMODE: ApiKey
+      DASHBOARD__OTLP__PRIMARYAPIKEY: ${OTLP_API_KEY}
+      DASHBOARD__FRONTEND__AUTHMODE: BrowserToken
+    ports:
+      - "127.0.0.1:18888:18888"   # dashboard UI (login token is printed in the container log)
+    networks: [frontend]
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512m }
+
+secrets:
+  devexpress_license:
+    file: ${DEVEXPRESS_LICENSE_FILE:-./docker/empty-license.txt}
+
+networks:
+  frontend: {}
+  backend:
+    internal: true
+
+volumes:
+  pgdata: {}

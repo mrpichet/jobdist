@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    JobDist.Worker.Sdk: SDK for projects that IMPLEMENT workers. Implement IJobHandler per job type, call
+    services.AddJobDistWorker(configuration).AddJobHandler<MyHandler>() and run the generic host.
+    The SDK handles registration, heartbeats, long-polling, signature verification, PQC payload decryption, concurrency,
+    timeouts, cancellation, result outbox with retries, fail-over between server instances and metrics ("JobDist.Worker").
+  -->
+  <PropertyGroup>
+    <RootNamespace>JobDist.Worker.Sdk</RootNamespace>
+    <PackageId>JobDist.Worker.Sdk</PackageId>
+    <Description>Worker SDK for the JobDist distributed job scheduler.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JobDist.Contracts\JobDist.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.Abstractions" />
+  </ItemGroup>
+</Project>
