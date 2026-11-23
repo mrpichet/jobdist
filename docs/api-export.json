@@ -1,0 +1,2097 @@
+{
+  "name": "JobDist",
+  "description": "Distributed job scheduler (.NET 10): REST API + MCP server over the same business logic.",
+  "authentication": "Header X-Api-Key (roles: Admin, Submitter, Viewer, Worker, AiAgent). Worker calls also need X-Worker-Token from registration.",
+  "endpoints": [
+    {
+      "Verb": "GET",
+      "Route": "/api/admin/summary",
+      "Group": "Admin",
+      "Auth": "policy:Read",
+      "Summary": "Cluster summary (workers, capacity, jobs by status, pending per type, HA leader).",
+      "Parameters": [],
+      "Returns": "ClusterSummaryDTO"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/admin/performance",
+      "Group": "Admin",
+      "Auth": "policy:Read",
+      "Summary": "What the ML model learned (per worker and job type).",
+      "Parameters": [
+        {
+          "Name": "jobType",
+          "Type": "string",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "IReadOnlyList<PerformanceStatDTO>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/admin/recommendations",
+      "Group": "Admin",
+      "Auth": "policy:Read",
+      "Summary": "Workers ranked for a job type with explanations.",
+      "Parameters": [
+        {
+          "Name": "jobType",
+          "Type": "string",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "top",
+          "Type": "int",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "IReadOnlyList<WorkerRecommendationDTO>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/admin/anomalies",
+      "Group": "Admin",
+      "Auth": "policy:Read",
+      "Summary": "Runs anomaly detection now.",
+      "Parameters": [
+        {
+          "Name": "windowMinutes",
+          "Type": "int",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "AnomalyReportDTO"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/admin/anomalies/alert",
+      "Group": "Admin",
+      "Auth": "policy:Admin",
+      "Summary": "Runs anomaly detection and sends an alert to admins through MessageHub immediately (ignores cooldown).",
+      "Parameters": [
+        {
+          "Name": "windowMinutes",
+          "Type": "int",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "IReadOnlyList<AnomalyDTO>"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/jobs",
+      "Group": "Jobs",
+      "Auth": "policy:Submit",
+      "Summary": "Submits a job.",
+      "Parameters": [
+        {
+          "Name": "request",
+          "Type": "SubmitJobRequest",
+          "Source": "body",
+          "Description": "Job type, payload, priority, optional target worker, retries, timeout, schedule time."
+        }
+      ],
+      "Returns": "SubmitJobResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/jobs/batch",
+      "Group": "Jobs",
+      "Auth": "policy:Submit",
+      "Summary": "Submits up to 5,000 jobs in one request (bulk insert).",
+      "Parameters": [
+        {
+          "Name": "request",
+          "Type": "SubmitJobBatchRequest",
+          "Source": "body",
+          "Description": "Jobs."
+        }
+      ],
+      "Returns": "IReadOnlyList<SubmitJobResponse>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/jobs/{jobId:guid}",
+      "Group": "Jobs",
+      "Auth": "policy:Read",
+      "Summary": "Gets the status of a job.",
+      "Parameters": [
+        {
+          "Name": "jobId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": "Job id."
+        }
+      ],
+      "Returns": "JobStatusResponse"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/jobs",
+      "Group": "Jobs",
+      "Auth": "policy:Read",
+      "Summary": "Lists jobs (newest first).",
+      "Parameters": [
+        {
+          "Name": "status",
+          "Type": "JobStatus?",
+          "Source": "query",
+          "Description": "Optional status filter."
+        },
+        {
+          "Name": "jobType",
+          "Type": "string",
+          "Source": "query",
+          "Description": "Optional job type filter."
+        },
+        {
+          "Name": "workerId",
+          "Type": "Guid?",
+          "Source": "query",
+          "Description": "Optional assigned worker filter."
+        },
+        {
+          "Name": "skip",
+          "Type": "int",
+          "Source": "query",
+          "Description": "Paging offset."
+        },
+        {
+          "Name": "take",
+          "Type": "int",
+          "Source": "query",
+          "Description": "Page size (1-1000)."
+        }
+      ],
+      "Returns": "PagedResponse<JobStatusResponse>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/jobs/{jobId:guid}/attempts",
+      "Group": "Jobs",
+      "Auth": "policy:Read",
+      "Summary": "Distribution history (attempts, workers, timings).",
+      "Parameters": [
+        {
+          "Name": "jobId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "IReadOnlyList<JobAttemptResponse>"
+    },
+    {
+      "Verb": "PATCH",
+      "Route": "/api/jobs/{jobId:guid}/priority",
+      "Group": "Jobs",
+      "Auth": "policy:Submit",
+      "Summary": "Changes the priority of an unfinished job.",
+      "Parameters": [
+        {
+          "Name": "jobId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": "Job id."
+        },
+        {
+          "Name": "request",
+          "Type": "ChangePriorityRequest",
+          "Source": "body",
+          "Description": "New priority 0-100."
+        }
+      ],
+      "Returns": "JobStatusResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/jobs/{jobId:guid}/cancel",
+      "Group": "Jobs",
+      "Auth": "policy:Submit",
+      "Summary": "Cancels a job. If a worker holds it, the server sends that worker a signed cancel command (status CancelRequested → Cancelled).",
+      "Parameters": [
+        {
+          "Name": "jobId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "request",
+          "Type": "CancelJobRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "JobStatusResponse"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/jobs/{jobId:guid}/risk",
+      "Group": "Jobs",
+      "Auth": "policy:Read",
+      "Summary": "Risk (0-100) that the job fails / is delayed, with explained factors.",
+      "Parameters": [
+        {
+          "Name": "jobId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "RiskAssessmentDTO"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/jobs/risk",
+      "Group": "Jobs",
+      "Auth": "policy:Read",
+      "Summary": "What-if risk of submitting a job type (nothing is created).",
+      "Parameters": [
+        {
+          "Name": "jobType",
+          "Type": "string",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "targetWorkerId",
+          "Type": "Guid?",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "strictTarget",
+          "Type": "bool",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "timeoutSeconds",
+          "Type": "int?",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "sensitive",
+          "Type": "bool",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "RiskAssessmentDTO"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/keys",
+      "Group": "Keys",
+      "Auth": "anonymous",
+      "Summary": "ML-DSA-65 + ECDSA-P384 public keys.",
+      "Parameters": [],
+      "Returns": "ServerKeysResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/workers/register",
+      "Group": "Workers",
+      "Auth": "policy:Worker",
+      "Summary": "Registers (or re-registers) a worker and returns its secret token and the server's signing keys.",
+      "Parameters": [
+        {
+          "Name": "request",
+          "Type": "RegisterWorkerRequest",
+          "Source": "body",
+          "Description": "Name, job types with concurrency, machine spec, encryption public keys."
+        }
+      ],
+      "Returns": "RegisterWorkerResponse"
+    },
+    {
+      "Verb": "DELETE",
+      "Route": "/api/workers/{workerId:guid}",
+      "Group": "Workers",
+      "Auth": "roles:Worker,Admin",
+      "Summary": "Unregisters a worker (graceful shutdown); jobs it holds are re-distributed immediately.",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "status / JSON"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/workers/{workerId:guid}/heartbeat",
+      "Group": "Workers",
+      "Auth": "policy:Worker",
+      "Summary": "Heartbeat with load figures; returns pending signed commands (cancel / drain).",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "request",
+          "Type": "HeartbeatRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "HeartbeatResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/workers/{workerId:guid}/poll",
+      "Group": "Workers",
+      "Auth": "policy:Worker",
+      "Summary": "Long-poll for signed job assignments (returns early when work arrives).",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "request",
+          "Type": "PollRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "PollResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/workers/{workerId:guid}/jobs/{jobId:guid}/started",
+      "Group": "Workers",
+      "Auth": "policy:Worker",
+      "Summary": "Reports that an attempt started. Response `cancelRequested=true` means stop immediately.",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "jobId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "request",
+          "Type": "JobStartedRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "status / JSON"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/workers/{workerId:guid}/jobs/{jobId:guid}/completed",
+      "Group": "Workers",
+      "Auth": "policy:Worker",
+      "Summary": "Reports the end of an attempt; 409 when the job was already re-distributed (the worker drops the result).",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "jobId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "request",
+          "Type": "JobCompletedRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "JobStatusResponse"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/workers",
+      "Group": "Workers",
+      "Auth": "policy:Read",
+      "Summary": "Lists workers.",
+      "Parameters": [
+        {
+          "Name": "includeUnregistered",
+          "Type": "bool",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "IReadOnlyList<WorkerResponse>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/workers/{workerId:guid}",
+      "Group": "Workers",
+      "Auth": "policy:Read",
+      "Summary": "Gets a worker.",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "WorkerResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/workers/{workerId:guid}/drain",
+      "Group": "Workers",
+      "Auth": "policy:Admin",
+      "Summary": "Drains a worker (no new jobs, current ones finish).",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "status / JSON"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/workers/{workerId:guid}/risk",
+      "Group": "Workers",
+      "Auth": "policy:Read",
+      "Summary": "Health risk of a worker.",
+      "Parameters": [
+        {
+          "Name": "workerId",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "RiskAssessmentDTO"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/mcp",
+      "Group": "Mcp",
+      "Auth": "policy:AiAgent",
+      "Summary": "MCP Streamable HTTP endpoint (stateless JSON-RPC). Tools listed below.",
+      "Parameters": [],
+      "Returns": "JSON-RPC"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/health",
+      "Group": "Health",
+      "Auth": "anonymous",
+      "Summary": "Readiness probe (database reachable).",
+      "Parameters": [],
+      "Returns": "text"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/alive",
+      "Group": "Health",
+      "Auth": "anonymous",
+      "Summary": "Liveness probe.",
+      "Parameters": [],
+      "Returns": "text"
+    }
+  ],
+  "mcpTools": [
+    {
+      "name": "assess_job_risk",
+      "description": "Calculate the risk (0-100) that a job fails, is delayed or is lost: no capable/online worker, strict target offline, backlog vs capacity, historical failure rate, expected duration vs timeout, attempts already used, unstable assigned worker. Returns score, level, factors and a recommendation.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "description": "Job id (GUID).",
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "jobId"
+        ]
+      }
+    },
+    {
+      "name": "assess_submission_risk",
+      "description": "What-if: calculate the risk (0-100) of submitting a job of the given type BEFORE creating it (capability, redundancy, backlog, history, timeout, encryption keys for sensitive payloads). Nothing is created.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobType": {
+            "description": "Job type, e.g. 'image.resize'.",
+            "type": "string"
+          },
+          "targetWorkerId": {
+            "description": "Optional worker id (GUID) that should run the job.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "default": null
+          },
+          "strictTarget": {
+            "description": "true = run only on targetWorkerId.",
+            "type": "boolean",
+            "default": false
+          },
+          "timeoutSeconds": {
+            "description": "Timeout per attempt in seconds (null = server default).",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "sensitive": {
+            "description": "true when the payload is confidential (needs encrypted delivery).",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "jobType"
+        ]
+      }
+    },
+    {
+      "name": "assess_worker_risk",
+      "description": "Calculate the health risk (0-100) of a worker: availability, network instability (offline count), learned failure rate per job type, CPU/memory pressure and missing post-quantum keys.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workerId": {
+            "description": "Worker id (GUID).",
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "workerId"
+        ]
+      }
+    },
+    {
+      "name": "detect_anomalies",
+      "description": "Detect abnormal job distribution in a recent window: submission spikes (z-score), high failure rates per job type or worker, slow execution, flapping workers, fail-over storms, queues without capable workers and suspicious worker reports.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "windowMinutes": {
+            "description": "Window size in minutes (5-1440).",
+            "type": "integer",
+            "default": 15
+          }
+        }
+      }
+    },
+    {
+      "name": "recommend_workers",
+      "description": "Rank online workers for a job type with the scheduler's own scoring (load, ML-predicted speed and reliability, exploration). Explains why each worker is ranked.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobType": {
+            "description": "Job type.",
+            "type": "string"
+          },
+          "top": {
+            "description": "Max results (1-100).",
+            "type": "integer",
+            "default": 5
+          }
+        },
+        "required": [
+          "jobType"
+        ]
+      }
+    },
+    {
+      "name": "get_job_status",
+      "description": "Get the status of a job: state, priority, assigned worker, attempts, timings, result or last error.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "description": "Job id (GUID).",
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "jobId"
+        ]
+      }
+    },
+    {
+      "name": "list_jobs",
+      "description": "List recent jobs, optionally filtered by status (Pending, Assigned, Running, Succeeded, Failed, CancelRequested, Cancelled) and job type.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Optional status filter.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "Pending",
+              "Assigned",
+              "Running",
+              "Succeeded",
+              "Failed",
+              "CancelRequested",
+              "Cancelled",
+              null
+            ],
+            "default": null
+          },
+          "jobType": {
+            "description": "Optional job type filter.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "take": {
+            "description": "Max results (1-200).",
+            "type": "integer",
+            "default": 50
+          }
+        }
+      }
+    },
+    {
+      "name": "get_job_history",
+      "description": "Get the distribution history of a job: every attempt with worker, queue wait, duration, outcome and scheduler score.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "description": "Job id (GUID).",
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "jobId"
+        ]
+      }
+    },
+    {
+      "name": "list_workers",
+      "description": "List registered workers with status, capabilities (job types and concurrency), machine spec, current load and stability.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_cluster_summary",
+      "description": "Get a cluster overview: workers online/draining/offline, capacity, jobs by status, pending jobs per type and the current HA leader.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_worker_performance",
+      "description": "Get what the ML model learned about worker performance per job type: samples, success/failure counts, mean and standard deviation of duration.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobType": {
+            "description": "Optional job type filter.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        }
+      }
+    },
+    {
+      "name": "submit_job",
+      "description": "Submit a new job. Only available when the operator enabled side-effect tools. Use assess_submission_risk first.",
+      "sideEffect": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobType": {
+            "description": "Job type.",
+            "type": "string"
+          },
+          "payload": {
+            "description": "Job payload (JSON text).",
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "priority": {
+            "description": "Priority 0-100 (higher runs first).",
+            "type": "integer",
+            "default": 50
+          },
+          "targetWorkerId": {
+            "description": "Optional preferred/strict worker id.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "default": null
+          },
+          "strictTarget": {
+            "description": "true = only on targetWorkerId.",
+            "type": "boolean",
+            "default": false
+          },
+          "idempotencyKey": {
+            "description": "Idempotency key so retries do not create duplicates.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "jobType"
+        ]
+      }
+    },
+    {
+      "name": "cancel_job",
+      "description": "Cancel a job. If a worker is running it, the server sends the worker a signed cancel command. Only available when side-effect tools are enabled.",
+      "sideEffect": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "description": "Job id (GUID).",
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "description": "Reason recorded on the job.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "jobId"
+        ]
+      }
+    },
+    {
+      "name": "change_job_priority",
+      "description": "Change the priority (0-100) of a job that has not finished. Only available when side-effect tools are enabled.",
+      "sideEffect": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "description": "Job id (GUID).",
+            "type": "string",
+            "format": "uuid"
+          },
+          "priority": {
+            "description": "New priority 0-100.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobId",
+          "priority"
+        ]
+      }
+    }
+  ],
+  "contracts": [
+    {
+      "Name": "CancelJobRequest",
+      "Kind": "record",
+      "Summary": "Cancel a job.",
+      "Members": [
+        {
+          "Name": "Reason",
+          "Type": "string",
+          "Description": "Optional reason (stored and sent to the worker)."
+        }
+      ]
+    },
+    {
+      "Name": "ChangePriorityRequest",
+      "Kind": "record",
+      "Summary": "Change the priority of a job that has not finished.",
+      "Members": [
+        {
+          "Name": "Priority",
+          "Type": "int",
+          "Description": "0 - 100."
+        }
+      ]
+    },
+    {
+      "Name": "EncryptedPayload",
+      "Kind": "record",
+      "Summary": "Sensitive payload encrypted for one worker (ML-KEM-768 + ECDH-P384 → HKDF → AES-256-GCM).",
+      "Members": [
+        {
+          "Name": "Algorithm",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "EphemeralEcdhPublicKey",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "MlKemCiphertext",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Nonce",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Tag",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Ciphertext",
+          "Type": "string",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "HeartbeatRequest",
+      "Kind": "record",
+      "Summary": "Heartbeat with live load figures.",
+      "Members": [
+        {
+          "Name": "RunningJobIds",
+          "Type": "IReadOnlyList<Guid>",
+          "Description": "Jobs currently executing on the worker."
+        },
+        {
+          "Name": "CpuUsagePercent",
+          "Type": "double",
+          "Description": "0-100."
+        },
+        {
+          "Name": "MemoryUsagePercent",
+          "Type": "double",
+          "Description": "0-100."
+        }
+      ]
+    },
+    {
+      "Name": "HeartbeatResponse",
+      "Kind": "record",
+      "Summary": "Heartbeat result.",
+      "Members": [
+        {
+          "Name": "Status",
+          "Type": "WorkerStatus",
+          "Description": "Worker status as seen by the server (e.g. `Draining`)."
+        },
+        {
+          "Name": "Commands",
+          "Type": "IReadOnlyList<WorkerCommandResponse>",
+          "Description": "Pending commands."
+        }
+      ]
+    },
+    {
+      "Name": "JobAssignmentResponse",
+      "Kind": "record",
+      "Summary": "A job given to a worker. The signature binds the job, attempt and worker so it cannot be replayed elsewhere.",
+      "Members": [
+        {
+          "Name": "JobId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "AttemptId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "WorkerId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Attempt",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Priority",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "TimeoutSeconds",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "IssuedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "Payload",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "EncryptedPayload",
+          "Type": "EncryptedPayload",
+          "Description": ""
+        },
+        {
+          "Name": "PayloadSha256",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Signature",
+          "Type": "SignatureEnvelope",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "JobAttemptResponse",
+      "Kind": "record",
+      "Summary": "One execution attempt (distribution history).",
+      "Members": [
+        {
+          "Name": "AttemptId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "JobId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "Attempt",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "WorkerId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "WorkerName",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "AssignedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "StartedUtc",
+          "Type": "DateTimeOffset?",
+          "Description": ""
+        },
+        {
+          "Name": "FinishedUtc",
+          "Type": "DateTimeOffset?",
+          "Description": ""
+        },
+        {
+          "Name": "DurationMs",
+          "Type": "double?",
+          "Description": ""
+        },
+        {
+          "Name": "QueueWaitMs",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "Outcome",
+          "Type": "AttemptOutcome",
+          "Description": ""
+        },
+        {
+          "Name": "Error",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "SchedulerScore",
+          "Type": "double",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "JobCompletedRequest",
+      "Kind": "record",
+      "Summary": "Worker reports the end of an attempt.",
+      "Members": [
+        {
+          "Name": "AttemptId",
+          "Type": "Guid",
+          "Description": "Attempt id from the assignment."
+        },
+        {
+          "Name": "Outcome",
+          "Type": "AttemptOutcome",
+          "Description": "Succeeded / Failed / TimedOut / Cancelled."
+        },
+        {
+          "Name": "DurationMs",
+          "Type": "double",
+          "Description": "Execution time measured by the worker."
+        },
+        {
+          "Name": "Result",
+          "Type": "string",
+          "Description": "Optional output (max 1 MB)."
+        },
+        {
+          "Name": "Error",
+          "Type": "string",
+          "Description": "Optional error text (max 4,000 chars, no stack traces with secrets)."
+        },
+        {
+          "Name": "Retryable",
+          "Type": "bool",
+          "Description": "Whether a failure may be retried."
+        }
+      ]
+    },
+    {
+      "Name": "JobStartedRequest",
+      "Kind": "record",
+      "Summary": "Worker reports that an attempt started.",
+      "Members": [
+        {
+          "Name": "AttemptId",
+          "Type": "Guid",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "JobStatusResponse",
+      "Kind": "record",
+      "Summary": "Public view of a job.",
+      "Members": [
+        {
+          "Name": "JobId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Status",
+          "Type": "JobStatus",
+          "Description": ""
+        },
+        {
+          "Name": "Priority",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "TargetWorkerId",
+          "Type": "Guid?",
+          "Description": ""
+        },
+        {
+          "Name": "StrictTarget",
+          "Type": "bool",
+          "Description": ""
+        },
+        {
+          "Name": "AssignedWorkerId",
+          "Type": "Guid?",
+          "Description": ""
+        },
+        {
+          "Name": "Attempt",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "MaxAttempts",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "TimeoutSeconds",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "CreatedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "RunAtUtc",
+          "Type": "DateTimeOffset?",
+          "Description": ""
+        },
+        {
+          "Name": "StartedUtc",
+          "Type": "DateTimeOffset?",
+          "Description": ""
+        },
+        {
+          "Name": "CompletedUtc",
+          "Type": "DateTimeOffset?",
+          "Description": ""
+        },
+        {
+          "Name": "LastDurationMs",
+          "Type": "double?",
+          "Description": ""
+        },
+        {
+          "Name": "Result",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "LastError",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "CancelReason",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Sensitive",
+          "Type": "bool",
+          "Description": ""
+        },
+        {
+          "Name": "Tags",
+          "Type": "IReadOnlyList<string>",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "PagedResponse`1",
+      "Kind": "record",
+      "Summary": "Paged list.",
+      "Members": [
+        {
+          "Name": "Items",
+          "Type": "IReadOnlyList<T>",
+          "Description": ""
+        },
+        {
+          "Name": "Total",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Skip",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Take",
+          "Type": "int",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "PollRequest",
+      "Kind": "record",
+      "Summary": "Long-poll for assigned jobs.",
+      "Members": [
+        {
+          "Name": "MaxJobs",
+          "Type": "int",
+          "Description": "Max jobs to receive now (1-256)."
+        },
+        {
+          "Name": "WaitSeconds",
+          "Type": "int",
+          "Description": "Long-poll wait when nothing is ready (0-30)."
+        }
+      ]
+    },
+    {
+      "Name": "PollResponse",
+      "Kind": "record",
+      "Summary": "Poll result.",
+      "Members": [
+        {
+          "Name": "Assignments",
+          "Type": "IReadOnlyList<JobAssignmentResponse>",
+          "Description": ""
+        },
+        {
+          "Name": "Commands",
+          "Type": "IReadOnlyList<WorkerCommandResponse>",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "RegisterWorkerRequest",
+      "Kind": "record",
+      "Summary": "Worker registration (worker → server, role `Worker`).",
+      "Members": [
+        {
+          "Name": "Name",
+          "Type": "string",
+          "Description": "Unique worker name (host name). Re-registering the same name re-uses the worker id."
+        },
+        {
+          "Name": "Capabilities",
+          "Type": "IReadOnlyList<WorkerCapabilityRequest>",
+          "Description": "Job types it can run (1-200)."
+        },
+        {
+          "Name": "Spec",
+          "Type": "WorkerSpecRequest",
+          "Description": "Machine specification."
+        },
+        {
+          "Name": "MaxTotalConcurrency",
+          "Type": "int",
+          "Description": "Cap across all job types (1-4096)."
+        },
+        {
+          "Name": "EcdhPublicKey",
+          "Type": "string",
+          "Description": "Base64 P-384 SubjectPublicKeyInfo for sensitive payload envelopes."
+        },
+        {
+          "Name": "MlKemPublicKey",
+          "Type": "string",
+          "Description": "Base64 ML-KEM-768 encapsulation key (null when the worker OS has no PQC support)."
+        },
+        {
+          "Name": "Version",
+          "Type": "string",
+          "Description": "Worker SDK version."
+        },
+        {
+          "Name": "Tags",
+          "Type": "IReadOnlyList<string>",
+          "Description": "Labels such as `zone=a`, `gpu`."
+        }
+      ]
+    },
+    {
+      "Name": "RegisterWorkerResponse",
+      "Kind": "record",
+      "Summary": "Registration result. The token is returned once; the server stores only its hash.",
+      "Members": [
+        {
+          "Name": "WorkerId",
+          "Type": "Guid",
+          "Description": "Worker id."
+        },
+        {
+          "Name": "WorkerToken",
+          "Type": "string",
+          "Description": "Secret presented in `X-Worker-Token` on every worker call."
+        },
+        {
+          "Name": "HeartbeatIntervalSeconds",
+          "Type": "int",
+          "Description": "How often to send heartbeats."
+        },
+        {
+          "Name": "OfflineAfterSeconds",
+          "Type": "int",
+          "Description": "Heartbeat silence after which the worker is considered lost."
+        },
+        {
+          "Name": "ServerKeys",
+          "Type": "ServerKeysResponse",
+          "Description": "Keys for verifying signed assignments and commands."
+        }
+      ]
+    },
+    {
+      "Name": "ServerKeysResponse",
+      "Kind": "record",
+      "Summary": "Public keys the worker uses to verify server commands (hybrid ML-DSA-65 + ECDSA-P384).",
+      "Members": [
+        {
+          "Name": "KeyId",
+          "Type": "string",
+          "Description": "Key identifier."
+        },
+        {
+          "Name": "MlDsaPublicKey",
+          "Type": "string",
+          "Description": "Base64 raw ML-DSA-65 public key, or null when the server OS has no PQC."
+        },
+        {
+          "Name": "EcdsaPublicKey",
+          "Type": "string",
+          "Description": "Base64 ECDSA P-384 SubjectPublicKeyInfo."
+        }
+      ]
+    },
+    {
+      "Name": "SignatureEnvelope",
+      "Kind": "record",
+      "Summary": "Detached hybrid signature.",
+      "Members": [
+        {
+          "Name": "Algorithm",
+          "Type": "string",
+          "Description": "`ML-DSA-65+ECDSA-P384` or `ECDSA-P384`."
+        },
+        {
+          "Name": "KeyId",
+          "Type": "string",
+          "Description": "Signing key id."
+        },
+        {
+          "Name": "PqcSignature",
+          "Type": "string",
+          "Description": "Base64 ML-DSA signature (null on platforms without PQC)."
+        },
+        {
+          "Name": "ClassicSignature",
+          "Type": "string",
+          "Description": "Base64 ECDSA signature (IEEE P1363)."
+        }
+      ]
+    },
+    {
+      "Name": "SubmitJobBatchRequest",
+      "Kind": "record",
+      "Summary": "Submit many jobs in one call (high-throughput ingestion).",
+      "Members": [
+        {
+          "Name": "Jobs",
+          "Type": "IReadOnlyList<SubmitJobRequest>",
+          "Description": "1 - 5,000 jobs."
+        }
+      ]
+    },
+    {
+      "Name": "SubmitJobRequest",
+      "Kind": "record",
+      "Summary": "Submit one job.",
+      "Members": [
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": "Job type, e.g. `image.resize`. Only workers that registered this type can run it."
+        },
+        {
+          "Name": "Payload",
+          "Type": "string",
+          "Description": "Job input (normally JSON). Max 1 MB."
+        },
+        {
+          "Name": "Priority",
+          "Type": "int",
+          "Description": "0 (lowest) to 100 (highest). Default 50."
+        },
+        {
+          "Name": "TargetWorkerId",
+          "Type": "Guid?",
+          "Description": "Optional worker that should run the job."
+        },
+        {
+          "Name": "StrictTarget",
+          "Type": "bool",
+          "Description": "`true` = run only on TargetWorkerId; `false` = prefer it."
+        },
+        {
+          "Name": "MaxAttempts",
+          "Type": "int?",
+          "Description": "Max executions including retries (1-20). Null = server default."
+        },
+        {
+          "Name": "TimeoutSeconds",
+          "Type": "int?",
+          "Description": "Execution timeout per attempt (1-86400). Null = server default."
+        },
+        {
+          "Name": "RunAtUtc",
+          "Type": "DateTimeOffset?",
+          "Description": "Optional earliest start time (scheduled job)."
+        },
+        {
+          "Name": "IdempotencyKey",
+          "Type": "string",
+          "Description": "Optional key; submitting the same key twice returns the first job (safe client retry)."
+        },
+        {
+          "Name": "Sensitive",
+          "Type": "bool",
+          "Description": "`true` = payload encrypted at rest and delivered to the worker in a PQC envelope."
+        },
+        {
+          "Name": "Tags",
+          "Type": "IReadOnlyList<string>",
+          "Description": "Optional free tags (max 10)."
+        }
+      ]
+    },
+    {
+      "Name": "SubmitJobResponse",
+      "Kind": "record",
+      "Summary": "Result of a submission.",
+      "Members": [
+        {
+          "Name": "JobId",
+          "Type": "Guid",
+          "Description": "New (or existing, when idempotent) job id."
+        },
+        {
+          "Name": "Status",
+          "Type": "JobStatus",
+          "Description": "Current status."
+        },
+        {
+          "Name": "Duplicate",
+          "Type": "bool",
+          "Description": "`true` when the idempotency key matched an existing job."
+        }
+      ]
+    },
+    {
+      "Name": "WorkerCapabilityRequest",
+      "Kind": "record",
+      "Summary": "A job type the worker can run and how many it can run at the same time.",
+      "Members": [
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": "Job type name."
+        },
+        {
+          "Name": "MaxConcurrency",
+          "Type": "int",
+          "Description": "Parallel executions of this type (1-1024)."
+        },
+        {
+          "Name": "SpeedFactor",
+          "Type": "double",
+          "Description": "Self-declared relative speed for this type (1.0 = baseline). The ML model refines it."
+        }
+      ]
+    },
+    {
+      "Name": "WorkerCommandResponse",
+      "Kind": "record",
+      "Summary": "Command for a worker, signed by the server.",
+      "Members": [
+        {
+          "Name": "CommandId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "Kind",
+          "Type": "WorkerCommandKind",
+          "Description": ""
+        },
+        {
+          "Name": "WorkerId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "JobId",
+          "Type": "Guid?",
+          "Description": ""
+        },
+        {
+          "Name": "Reason",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "IssuedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "Signature",
+          "Type": "SignatureEnvelope",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "WorkerResponse",
+      "Kind": "record",
+      "Summary": "Public view of a worker.",
+      "Members": [
+        {
+          "Name": "WorkerId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "Name",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Status",
+          "Type": "WorkerStatus",
+          "Description": ""
+        },
+        {
+          "Name": "Capabilities",
+          "Type": "IReadOnlyList<WorkerCapabilityRequest>",
+          "Description": ""
+        },
+        {
+          "Name": "Spec",
+          "Type": "WorkerSpecRequest",
+          "Description": ""
+        },
+        {
+          "Name": "MaxTotalConcurrency",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "ActiveJobs",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "CpuUsagePercent",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "MemoryUsagePercent",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "RegisteredUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "LastHeartbeatUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "OfflineCount",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "SupportsPqc",
+          "Type": "bool",
+          "Description": ""
+        },
+        {
+          "Name": "Version",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Tags",
+          "Type": "IReadOnlyList<string>",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "WorkerSpecRequest",
+      "Kind": "record",
+      "Summary": "Machine specification used by the scheduler to match jobs to hardware.",
+      "Members": [
+        {
+          "Name": "CpuCores",
+          "Type": "int",
+          "Description": "Logical CPU cores."
+        },
+        {
+          "Name": "MemoryMb",
+          "Type": "long",
+          "Description": "Memory available to the worker."
+        },
+        {
+          "Name": "GpuCount",
+          "Type": "int",
+          "Description": "Number of GPUs."
+        },
+        {
+          "Name": "BenchmarkScore",
+          "Type": "double",
+          "Description": "Relative single benchmark score (1.0 = baseline machine)."
+        },
+        {
+          "Name": "Os",
+          "Type": "string",
+          "Description": "Operating system description."
+        }
+      ]
+    },
+    {
+      "Name": "AttemptOutcome",
+      "Kind": "enum",
+      "Summary": "Outcome reported by a worker for one execution attempt.",
+      "Members": [
+        {
+          "Name": "InProgress",
+          "Type": "0",
+          "Description": "Still running."
+        },
+        {
+          "Name": "Succeeded",
+          "Type": "1",
+          "Description": "Handler completed successfully."
+        },
+        {
+          "Name": "Failed",
+          "Type": "2",
+          "Description": "Handler failed; the job may be retried if `Retryable` was set."
+        },
+        {
+          "Name": "TimedOut",
+          "Type": "3",
+          "Description": "Handler exceeded its timeout."
+        },
+        {
+          "Name": "Cancelled",
+          "Type": "4",
+          "Description": "Handler was cancelled on request."
+        },
+        {
+          "Name": "WorkerLost",
+          "Type": "5",
+          "Description": "Worker was lost (heartbeat timeout / lease expired) - set by the server."
+        },
+        {
+          "Name": "Released",
+          "Type": "6",
+          "Description": "Worker unregistered while holding the job - set by the server."
+        }
+      ]
+    },
+    {
+      "Name": "JobStatus",
+      "Kind": "enum",
+      "Summary": "Lifecycle state of a job.",
+      "Members": [
+        {
+          "Name": "Pending",
+          "Type": "0",
+          "Description": "Waiting in the queue to be scheduled (also used for a retry that waits for its back-off)."
+        },
+        {
+          "Name": "Assigned",
+          "Type": "1",
+          "Description": "Scheduler picked a worker; the worker has not started it yet."
+        },
+        {
+          "Name": "Running",
+          "Type": "2",
+          "Description": "Worker reported that execution started."
+        },
+        {
+          "Name": "Succeeded",
+          "Type": "3",
+          "Description": "Finished successfully."
+        },
+        {
+          "Name": "Failed",
+          "Type": "4",
+          "Description": "Finished with an error and no retries left (or a non-retryable error)."
+        },
+        {
+          "Name": "CancelRequested",
+          "Type": "5",
+          "Description": "Cancellation requested; waiting for the worker to acknowledge."
+        },
+        {
+          "Name": "Cancelled",
+          "Type": "6",
+          "Description": "Cancelled."
+        }
+      ]
+    },
+    {
+      "Name": "WorkerCommandKind",
+      "Kind": "enum",
+      "Summary": "Command that the server pushes to a worker through heartbeat / poll responses.",
+      "Members": [
+        {
+          "Name": "CancelJob",
+          "Type": "1",
+          "Description": "Cancel a running job."
+        },
+        {
+          "Name": "Drain",
+          "Type": "2",
+          "Description": "Stop taking new jobs and finish current ones."
+        }
+      ]
+    },
+    {
+      "Name": "WorkerStatus",
+      "Kind": "enum",
+      "Summary": "State of a registered worker.",
+      "Members": [
+        {
+          "Name": "Online",
+          "Type": "0",
+          "Description": "Heartbeats arrive in time; can receive jobs."
+        },
+        {
+          "Name": "Draining",
+          "Type": "1",
+          "Description": "Finishing current jobs, receives no new jobs (graceful shutdown / maintenance)."
+        },
+        {
+          "Name": "Offline",
+          "Type": "2",
+          "Description": "Heartbeat timed out (network loss / crash). Its jobs were re-distributed."
+        },
+        {
+          "Name": "Unregistered",
+          "Type": "3",
+          "Description": "Worker unregistered itself or was removed by an administrator."
+        }
+      ]
+    }
+  ],
+  "sdk": [
+    {
+      "Name": "IJobDistClient",
+      "Kind": "interface",
+      "Summary": "Job submission API for other projects.",
+      "Members": [
+        {
+          "Name": "SubmitAsync(SubmitJobRequest request, CancellationToken ct)",
+          "Type": "Task<SubmitJobResponse>",
+          "Description": "Submits a job. An idempotency key is generated when missing so automatic fail-over retries never duplicate the job."
+        },
+        {
+          "Name": "SubmitBatchAsync(IReadOnlyList<SubmitJobRequest> jobs, CancellationToken ct)",
+          "Type": "Task<IReadOnlyList<SubmitJobResponse>>",
+          "Description": "Submits up to 5,000 jobs in one call."
+        },
+        {
+          "Name": "GetAsync(Guid jobId, CancellationToken ct)",
+          "Type": "Task<JobStatusResponse>",
+          "Description": "Gets a job's status."
+        },
+        {
+          "Name": "ListAsync(JobStatus? status, string jobType, int skip, int take, CancellationToken ct)",
+          "Type": "Task<PagedResponse<JobStatusResponse>>",
+          "Description": "Lists jobs."
+        },
+        {
+          "Name": "GetAttemptsAsync(Guid jobId, CancellationToken ct)",
+          "Type": "Task<IReadOnlyList<JobAttemptResponse>>",
+          "Description": "Distribution history of a job."
+        },
+        {
+          "Name": "ChangePriorityAsync(Guid jobId, int priority, CancellationToken ct)",
+          "Type": "Task<JobStatusResponse>",
+          "Description": "Changes the priority of an unfinished job (0-100)."
+        },
+        {
+          "Name": "CancelAsync(Guid jobId, string reason, CancellationToken ct)",
+          "Type": "Task<JobStatusResponse>",
+          "Description": "Cancels a job (the server tells the worker to stop)."
+        },
+        {
+          "Name": "WaitForCompletionAsync(Guid jobId, TimeSpan? pollInterval, CancellationToken ct)",
+          "Type": "Task<JobStatusResponse>",
+          "Description": "Polls until the job reaches a final state (Succeeded / Failed / Cancelled) or the token is cancelled."
+        }
+      ]
+    },
+    {
+      "Name": "JobDistClientOptions",
+      "Kind": "class",
+      "Summary": "Client settings (section `JobDistClient`).",
+      "Members": [
+        {
+          "Name": "ServerUrls",
+          "Type": "List<string>",
+          "Description": "One or more server URLs; on network errors / 5xx the client fails over to the next (HA)."
+        },
+        {
+          "Name": "ApiKey",
+          "Type": "string",
+          "Description": "API key with the Submitter role (from a secret store / environment variable)."
+        },
+        {
+          "Name": "Timeout",
+          "Type": "TimeSpan",
+          "Description": "Per-request timeout."
+        }
+      ]
+    },
+    {
+      "Name": "IJobHandler",
+      "Kind": "interface",
+      "Summary": "Implemented by applications: runs one job type. One handler instance is resolved per execution from a DI scope, so handlers may depend on scoped services (DbContext, HttpClient, ...).",
+      "Members": [
+        {
+          "Name": "ExecuteAsync(JobContext context, CancellationToken ct)",
+          "Type": "Task<JobResult>",
+          "Description": "Executes one job."
+        },
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": "Job type this handler runs (e.g. `image.resize`). Must be unique per worker."
+        },
+        {
+          "Name": "MaxConcurrency",
+          "Type": "int",
+          "Description": "Maximum parallel executions of this type on this worker (advertised to the server)."
+        },
+        {
+          "Name": "SpeedFactor",
+          "Type": "double",
+          "Description": "Self-declared relative speed (1.0 = baseline). The server's ML model learns the real value from history."
+        }
+      ]
+    },
+    {
+      "Name": "JobContext",
+      "Kind": "record",
+      "Summary": "Information about the job being executed.",
+      "Members": [
+        {
+          "Name": "JobId",
+          "Type": "Guid",
+          "Description": "Job id."
+        },
+        {
+          "Name": "AttemptId",
+          "Type": "Guid",
+          "Description": "Attempt id (unique per distribution)."
+        },
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": "Job type."
+        },
+        {
+          "Name": "Attempt",
+          "Type": "int",
+          "Description": "1-based attempt number (greater than 1 means this is a retry: make the handler idempotent)."
+        },
+        {
+          "Name": "Priority",
+          "Type": "int",
+          "Description": "Priority 0-100."
+        },
+        {
+          "Name": "Timeout",
+          "Type": "TimeSpan",
+          "Description": "Execution timeout given by the server."
+        },
+        {
+          "Name": "Payload",
+          "Type": "string",
+          "Description": "Decrypted payload (usually JSON), or null."
+        },
+        {
+          "Name": "WasEncrypted",
+          "Type": "bool",
+          "Description": "True when the payload arrived as a post-quantum hybrid envelope."
+        }
+      ]
+    },
+    {
+      "Name": "JobResult",
+      "Kind": "record",
+      "Summary": "Outcome of a handler.",
+      "Members": [
+        {
+          "Name": "Success",
+          "Type": "bool",
+          "Description": "True when the job succeeded."
+        },
+        {
+          "Name": "Output",
+          "Type": "string",
+          "Description": "Optional output text / JSON (max 1 MB)."
+        },
+        {
+          "Name": "Error",
+          "Type": "string",
+          "Description": "Error text on failure (max 4,000 chars; never include secrets)."
+        },
+        {
+          "Name": "Retryable",
+          "Type": "bool",
+          "Description": "Whether a failure may be retried on another attempt."
+        }
+      ]
+    },
+    {
+      "Name": "JobDistWorkerOptions",
+      "Kind": "class",
+      "Summary": "Worker settings (section `JobDistWorker`).",
+      "Members": [
+        {
+          "Name": "ServerUrls",
+          "Type": "List<string>",
+          "Description": "All server instances (HA). The worker fails over between them on network errors and 5xx."
+        },
+        {
+          "Name": "ApiKey",
+          "Type": "string",
+          "Description": "API key with the `Worker` role (inject through a secret store or environment variable)."
+        },
+        {
+          "Name": "WorkerName",
+          "Type": "string",
+          "Description": "Unique worker name. Defaults to the machine name. Re-using the name after a crash re-uses the worker id."
+        },
+        {
+          "Name": "MaxTotalConcurrency",
+          "Type": "int",
+          "Description": "Total parallel jobs across all types. Defaults to the number of logical CPU cores."
+        },
+        {
+          "Name": "ConcurrencyOverrides",
+          "Type": "Dictionary<string, int>",
+          "Description": "Per-type concurrency overrides (job type → max concurrency), take precedence over the handler default."
+        },
+        {
+          "Name": "BenchmarkScore",
+          "Type": "double",
+          "Description": "Relative machine benchmark (1.0 = baseline). 0 = measure automatically at start-up."
+        },
+        {
+          "Name": "GpuCount",
+          "Type": "int",
+          "Description": "Number of GPUs available to jobs."
+        },
+        {
+          "Name": "Tags",
+          "Type": "List<string>",
+          "Description": "Labels such as `zone=a`."
+        },
+        {
+          "Name": "PollWaitSeconds",
+          "Type": "int",
+          "Description": "Long-poll wait in seconds (0-30)."
+        },
+        {
+          "Name": "RequireSignatures",
+          "Type": "bool",
+          "Description": "Reject assignments and commands whose server signature does not verify (strongly recommended)."
+        },
+        {
+          "Name": "PinnedServerKeyId",
+          "Type": "string",
+          "Description": "Optional pin of the server signing key id. When set, keys with another id are rejected and never refreshed automatically (protects against a malicious server that tries to rotate in its own key)."
+        },
+        {
+          "Name": "RequestTimeout",
+          "Type": "TimeSpan",
+          "Description": "HTTP timeout for normal (non long-poll) calls."
+        },
+        {
+          "Name": "ReportRetention",
+          "Type": "TimeSpan",
+          "Description": "How long a completion report is retried while the server is unreachable before it is dropped."
+        },
+        {
+          "Name": "UnregisterOnShutdown",
+          "Type": "bool",
+          "Description": "Unregister from the server on graceful shutdown (running jobs are re-distributed immediately)."
+        },
+        {
+          "Name": "ShutdownGracePeriod",
+          "Type": "TimeSpan",
+          "Description": "Time given to running jobs to finish during shutdown before they are cancelled."
+        }
+      ]
+    }
+  ]
+}
