@@ -553,7 +553,7 @@ State of a registered worker.
 
 ## SDKs
 
-- **Submit jobs** from another project: reference `JobDist.Client`, `services.AddJobDistClient(configuration)` (section `JobDistClient`), inject `IJobDistClient`.
+- **Submit jobs** from another project: reference `JobDist.Client`, `services.AddJobDistClient(configuration.GetSection("JobDistClient"))`, inject `IJobDistClient`.
 - **Implement a worker**: reference `JobDist.Worker.Sdk`, implement `IJobHandler`, `services.AddJobDistWorker(configuration).AddJobHandler<MyHandler>()` (section `JobDistWorker`).
 
 ### `IJobDistClient` (interface)
