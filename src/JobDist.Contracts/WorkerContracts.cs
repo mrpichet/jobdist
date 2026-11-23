@@ -44,7 +44,7 @@ public sealed record RegisterWorkerRequest(
     [Required] WorkerSpecRequest Spec,
     [Range(1, 4096)] int MaxTotalConcurrency = 4,
     [StringLength(512)] string? EcdhPublicKey = null,
-    [StringLength(4096)] string? MlKemPublicKey = null,
+    [StringLength(2048)] string? MlKemPublicKey = null,
     [StringLength(50)] string? Version = null,
     [MaxLength(20)] IReadOnlyList<string>? Tags = null);
 
