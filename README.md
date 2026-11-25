@@ -6,7 +6,7 @@ business logic ชุดเดียวกันเปิดให้ใช้ 2
 - **REST Web API** (ASP.NET Core controllers, ใช้ไลบรารี built-in ของ Microsoft) ที่ `/api/*`
 - **MCP Server** ที่สร้างด้วย **Microsoft.Extensions.AI** (`AIFunctionFactory` → `McpServerTool`) ที่ `/mcp` (HTTP) หรือแบบ stdio
 
-และมี **Blazor WebAssembly UI (DevExpress 26.1)** สำหรับดูสถานะ เปลี่ยน priority และยกเลิกงาน
+และมี **เว็บคอนโซล Blazor WebAssembly (WebCommon.UI + DevExpress 26.1)** เข้าสู่ระบบผ่าน AuthServer สำหรับติดตามงาน Worker คิว การแจ้งเตือน และรายงาน (คู่มือ: [`docs/manuals/USER_MANUAL.md`](docs/manuals/USER_MANUAL.md), ติดตั้ง: [`docs/manuals/INSTALLATION.md`](docs/manuals/INSTALLATION.md))
 
 > สรุป API ทั้งหมดสำหรับ Claude / AI ในโปรเจกต์อื่น: [`docs/API_EXPORT.md`](docs/API_EXPORT.md) (และ [`docs/api-export.json`](docs/api-export.json))
 
@@ -75,7 +75,7 @@ business logic ชุดเดียวกันเปิดให้ใช้ 2
 | `src/JobDist.Mcp` | AI tools (Microsoft.Extensions.AI `AIFunctionFactory`) แล้วห่อเป็น MCP tools |
 | `src/JobDist.Server` | REST controllers + MCP over HTTP + โฮสต์ UI, auth, rate limit, security headers |
 | `src/JobDist.McpServer` | MCP server แบบ stdio สำหรับ Claude Desktop / Claude Code / VS Code |
-| `src/JobDist.UI` | Blazor WebAssembly + DevExpress 26.1 (แยกโปรเจกต์) |
+| `src/JobDist.Web` | เว็บคอนโซล Blazor WebAssembly (WebCommon.UI + DevExpress 26.1) |
 | `src/JobDist.ServiceDefaults` | OpenTelemetry (metrics/traces/logs → Aspire) + health checks |
 | `src/JobDist.Client` | **SDK สำหรับโปรเจกต์ที่ส่งงาน** (`IJobDistClient`) |
 | `src/JobDist.Worker.Sdk` | **SDK สำหรับโปรเจกต์ที่ทำ worker** (`IJobHandler`) |
@@ -533,7 +533,7 @@ dotnet test tests/JobDist.Tests     # 53 tests, ไม่ต้องมี DB (
 | Anomaly → แจ้ง admin ผ่าน messagehub | `AnomalyDetectionService`, `AlertService`, `MessageHubAlertSender` |
 | DTO / DAO / ADO / Service | หัวข้อ 2 |
 | PQC | ML-DSA-65, ML-KEM-768 แบบ hybrid |
-| Blazor WASM + DevExpress 26.1 แยกโปรเจกต์ | `src/JobDist.UI` |
+| Blazor WASM + WebCommon.UI + DevExpress 26.1 | `src/JobDist.Web` |
 | MCP tools คำนวณความเสี่ยง | `assess_job_risk`, `assess_submission_risk`, `assess_worker_risk` |
 | MSTest | `tests/JobDist.Tests` |
 | ตัวอย่าง cURL และ AI | หัวข้อ 4, 5, `samples/JobDist.AiClientSample` |
