@@ -1,0 +1,142 @@
+@page "/insights/anomalies"
+@attribute [Authorize]
+@implements IDisposable
+@* S12 Anomalies in a time window, with "send alert now" (jobdist.alert.send). *@
+<PageTitle>@L["Menu.Anomalies"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.InsightView">
+    <ReportTemplate Title="@L["Menu.Anomalies"]" Description="@L["Anomaly.Description"]" Breadcrumbs="_breadcrumbs"
+                    CriteriaActiveCount="@(_window == 15 ? 0 : 1)" OnGenerate="GenerateAsync" OnClear="ClearAsync"
+                    Busy="_busy" HasResult="@(_rows is not null)" ErrorMessage="@_error"
+                    ReportTitle="@L["Menu.Anomalies"]" CriteriaSummary="@Summary" GeneratedAt="_generatedAt"
+                    ExportPermission="@AppPermissions.InsightView" ExportFormats="_formats" OnExport="ExportAsync">
+        <HeaderActions>
+            <AppButton Text="@L["Anomaly.SendAlert"]" Icon="send" Permission="@AppPermissions.AlertSend" Busy="_sending" Disabled="@(_rows is not { Count: > 0 })" OnClick="SendAsync" />
+        </HeaderActions>
+        <Criteria>
+            <FieldGrid Columns="1">
+                <Field Label="@L["Anomaly.Window"]" InputId="a-window" Hint="@L["Anomaly.WindowHint"]">
+                    <DxSpinEdit InputId="a-window" @bind-Value="_window" MinValue="5" MaxValue="1440" Increment="5" />
+                </Field>
+            </FieldGrid>
+        </Criteria>
+        <Result>
+            @if (_rows is { } rows)
+            {
+                @if (rows.Count == 0)
+                {
+                    <EmptyState Title="@L["Anomaly.None"]" Description="@L["Anomaly.NoneHint"]" Icon="check-circle" />
+                }
+                <DxGrid @ref="_grid" Data="rows" KeyFieldName="@nameof(AnomalyRow.Index)" ShowAllRows="true" AllowSort="true" ColumnResizeMode="GridColumnResizeMode.NextColumn" Visible="@(rows.Count > 0)">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.SeverityText)" Caption="@L["Anomaly.Severity"]" Width="130px">
+                            <CellDisplayTemplate>
+                                @{ var a = ((AnomalyRow)context.DataItem).Anomaly; }
+                                <Badge Text="@Fmt.Severity(a.Severity)" Level="@Fmt.SeverityLevel(a.Severity)" Icon="alert-triangle" />
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.KindText)" Caption="@L["Anomaly.Kind"]" Width="180px" />
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.Subject)" Caption="@L["Anomaly.Subject"]" Width="160px" />
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.Description)" Caption="@L["Anomaly.Description"]" MinWidth="240" />
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.Observed)" Caption="@L["Anomaly.Observed"]" DisplayFormat="N2" Width="110px" />
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.Expected)" Caption="@L["Anomaly.Expected"]" DisplayFormat="N2" Width="110px" />
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.Score)" Caption="@L["Anomaly.Score"]" DisplayFormat="N2" Width="90px" />
+                        <DxGridDataColumn FieldName="@nameof(AnomalyRow.Detected)" Caption="@L["Anomaly.DetectedAt"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+                    </Columns>
+                </DxGrid>
+            }
+        </Result>
+    </ReportTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private GridExportService Exporter { get; set; } = default!;
+
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Analysis")), new(AppText.Get("Menu.Anomalies"))];
+    private readonly ExportFormat[] _formats = [ExportFormat.Excel, ExportFormat.Csv, ExportFormat.Pdf];
+    private readonly CancellationTokenSource _cts = new();
+    private IGrid? _grid;
+    private int _window = 15;
+    private int _reportedWindow = 15;
+    private List<AnomalyRow>? _rows;
+    private DateTimeOffset? _generatedAt;
+    private bool _busy;
+    private bool _sending;
+    private string? _error;
+
+    private string Summary => L["Anomaly.WindowSummary", _reportedWindow];
+
+    protected override Task OnInitializedAsync() => GenerateAsync();
+
+    private async Task GenerateAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var window = Math.Clamp(_window, 5, 1440);
+            var report = await Splash.RunAsync(L["Anomaly.Loading"], (_, ct) => Api.GetAnomaliesAsync(window, ct), cancellationToken: _cts.Token);
+            _rows = report.Anomalies.OrderByDescending(a => a.Score).Select((a, i) => new AnomalyRow(i, a)).ToList();
+            _reportedWindow = window;
+            _generatedAt = DateTimeOffset.Now;
+        }
+        catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task ClearAsync()
+    {
+        _window = 15;
+        return GenerateAsync();
+    }
+
+    private async Task SendAsync()
+    {
+        _sending = true;
+        try
+        {
+            // New key per press: each press is a deliberate send; the key only protects against a lost response on this press.
+            var sent = await Api.SendAnomalyAlertAsync(_reportedWindow, Guid.NewGuid().ToString("N"), _cts.Token);
+            Toasts.Success(L["Anomaly.Sent", sent.Count]);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private async Task ExportAsync(ExportFormat format)
+    {
+        if (_grid is not null) await Exporter.ExportAsync(_grid, format, L["Menu.Anomalies"], Summary);
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

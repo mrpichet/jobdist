@@ -1,0 +1,6 @@
+@* Worker status: icon + text. *@
+<Badge Text="@Fmt.Status(Status)" Level="@Fmt.Level(Status)" Icon="@Fmt.Icon(Status)" />
+
+@code {
+    [Parameter, EditorRequired] public WorkerStatus Status { get; set; }
+}

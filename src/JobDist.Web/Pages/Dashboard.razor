@@ -1,0 +1,235 @@
+@page "/"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@* S01 Dashboard: cluster summary, queue usage against thresholds, latest anomalies; manual or user-chosen auto refresh (Q8). *@
+<PageTitle>@L["Menu.Dashboard"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.DashboardView">
+    <PageHeader Title="@L["Menu.Dashboard"]" Description="@L["Dashboard.Description"]">
+        <Actions>
+            <div class="toolbar-inline">
+                <label for="refresh-interval" class="muted">@L["Dashboard.AutoRefresh"]</label>
+                <DxComboBox InputId="refresh-interval" Data="RefreshOptions" Value="_refreshSeconds" ValueChanged="(int v) => ChangeIntervalAsync(v)"
+                            ValueFieldName="@nameof(ListOption<int>.Value)" TextFieldName="@nameof(ListOption<int>.Text)" Width="140px" />
+                <AppButton Text="@L["Common.Refresh"]" Icon="refresh" Busy="_loading" OnClick="LoadAsync" />
+            </div>
+        </Actions>
+    </PageHeader>
+
+    @if (_error is not null)
+    {
+        <Alert Level="AlertLevel.Danger" Title="@L["Common.LoadFailed"]">
+            <ChildContent>@_error</ChildContent>
+            <Actions><AppButton Text="@T["Common.Retry"]" Icon="refresh" Size="ButtonSize.Small" OnClick="LoadAsync" /></Actions>
+        </Alert>
+    }
+
+    @if (_summary is null)
+    {
+        @if (_error is null) { <LoadingState /> }
+    }
+    else
+    {
+        <div class="page-stack">
+            <div class="kpis" role="list">
+                <div class="kpi" role="listitem"><span class="kpi__label">@L["Dashboard.WorkersOnline"]</span><span class="kpi__value">@_summary.WorkersOnline.ToString("N0")</span></div>
+                <div class="kpi" role="listitem"><span class="kpi__label">@L["Dashboard.WorkersDraining"]</span><span class="kpi__value">@_summary.WorkersDraining.ToString("N0")</span></div>
+                <div class="kpi" role="listitem"><span class="kpi__label">@L["Dashboard.WorkersOffline"]</span><span class="kpi__value">@_summary.WorkersOffline.ToString("N0")</span></div>
+                <div class="kpi" role="listitem"><span class="kpi__label">@L["Dashboard.Capacity"]</span><span class="kpi__value">@_summary.TotalCapacity.ToString("N0")</span></div>
+                <div class="kpi" role="listitem"><span class="kpi__label">@L["Dashboard.ActiveJobs"]</span><span class="kpi__value">@_summary.ActiveJobs.ToString("N0")</span></div>
+                <div class="kpi" role="listitem"><span class="kpi__label">@L["Dashboard.PendingJobs"]</span><span class="kpi__value">@_summary.PendingByType.Values.Sum().ToString("N0")</span></div>
+            </div>
+
+            <div class="two-col">
+                <Card Title="@L["Dashboard.JobsByStatus"]">
+                    <table class="simple-table">
+                        <thead><tr><th>@L["Job.Status"]</th><th class="num">@L["Common.Count"]</th></tr></thead>
+                        <tbody>
+                            @foreach (var s in Enum.GetValues<JobStatus>())
+                            {
+                                <tr><td><JobStatusBadge Status="s" /></td><td class="num">@_summary.JobsByStatus.GetValueOrDefault(s.ToString()).ToString("N0")</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </Card>
+                <Card Title="@L["Dashboard.PendingByType"]">
+                    @if (_summary.PendingByType.Count == 0)
+                    {
+                        <EmptyState Title="@L["Dashboard.NoPending"]" Icon="check-circle" />
+                    }
+                    else
+                    {
+                        <table class="simple-table">
+                            <thead><tr><th>@L["Job.JobType"]</th><th class="num">@L["Common.Count"]</th></tr></thead>
+                            <tbody>
+                                @foreach (var p in _summary.PendingByType.OrderByDescending(p => p.Value))
+                                {
+                                    <tr><td>@p.Key</td><td class="num">@p.Value.ToString("N0")</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </Card>
+            </div>
+
+            <div class="two-col">
+                <Card Title="@L["Dashboard.QueueUsage"]" Description="@L["Dashboard.QueueUsageHint"]">
+                    @if (_queues is not { Count: > 0 })
+                    {
+                        <EmptyState Title="@L["Dashboard.NoThresholds"]" Icon="hourglass">
+                            <AppButton Text="@L["Threshold.New"]" Icon="plus" Permission="@AppPermissions.QueueManage" Href="alerts/queue-thresholds/new" />
+                        </EmptyState>
+                    }
+                    else
+                    {
+                        <div class="page-stack">
+                            @foreach (var q in _queues.Where(q => q.Enabled))
+                            {
+                                <UsageBar Label="@(q.JobType == "*" ? L["Threshold.AllTypes"].Value : q.JobType)" Percent="q.UsagePercent" Pending="q.Pending" Max="q.MaxPending" Level="q.Level" />
+                            }
+                        </div>
+                    }
+                </Card>
+                <Card Title="@L["Dashboard.Leader"]">
+                    <dl class="kv">
+                        <dt>@L["Dashboard.LeaderInstance"]</dt><dd>@(_summary.LeaderInstance ?? L["Dashboard.NoLeader"].Value)</dd>
+                        <dt>@L["Dashboard.ThisInstance"]</dt><dd>@(_summary.ThisInstanceIsLeader ? L["Common.Yes"] : L["Common.No"])</dd>
+                        <dt>@L["Dashboard.GeneratedAt"]</dt><dd>@Fmt.Time(_summary.GeneratedUtc)</dd>
+                    </dl>
+                </Card>
+            </div>
+
+            <PermissionView Permission="@AppPermissions.InsightView">
+                <Card Title="@L["Dashboard.RecentAnomalies"]">
+                    <HeaderActions><AppButton Text="@L["Common.ViewAll"]" Icon="chevron-right" Href="insights/anomalies" Size="ButtonSize.Small" /></HeaderActions>
+                    <ChildContent>
+                        @if (_anomalies is not { Count: > 0 })
+                        {
+                            <EmptyState Title="@L["Anomaly.None"]" Icon="check-circle" />
+                        }
+                        else
+                        {
+                            <table class="simple-table">
+                                <thead><tr><th>@L["Anomaly.Severity"]</th><th>@L["Anomaly.Kind"]</th><th>@L["Anomaly.Subject"]</th><th>@L["Anomaly.Description"]</th><th>@L["Anomaly.DetectedAt"]</th></tr></thead>
+                                <tbody>
+                                    @foreach (var a in _anomalies)
+                                    {
+                                        <tr>
+                                            <td><Badge Text="@Fmt.Severity(a.Severity)" Level="@Fmt.SeverityLevel(a.Severity)" Icon="alert-triangle" /></td>
+                                            <td>@L[$"AnomalyKind.{a.Kind}"]</td><td>@a.Subject</td><td>@a.Description</td><td>@Fmt.Time(a.DetectedUtc)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </ChildContent>
+                </Card>
+            </PermissionView>
+        </div>
+    }
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private PermissionService Permissions { get; set; } = default!;
+    [Inject] private DashboardSettings Settings { get; set; } = default!;
+    [Inject] private StatusService Status { get; set; } = default!;
+
+    private static readonly IReadOnlyList<ListOption<int>> RefreshOptions =
+        DashboardSettings.Choices.Select(s => new ListOption<int>(s, s == 0 ? AppText.Get("Dashboard.RefreshOff") : AppText.Format("Dashboard.RefreshEvery", s))).ToList();
+
+    private readonly CancellationTokenSource _cts = new();
+    private PeriodicTimer? _timer;
+    private ClusterSummary? _summary;
+    private List<QueueStatusResponse>? _queues;
+    private List<Anomaly>? _anomalies;
+    private int _refreshSeconds;
+    private bool _loading;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _refreshSeconds = await Settings.GetAsync();
+        await LoadAsync();
+        StartTimer();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_loading) return;
+        _loading = true;
+        _error = null;
+        try
+        {
+            // Summary is required; queue status and anomalies are best effort (they need other permissions / roles).
+            var summary = Api.GetSummaryAsync(_cts.Token);
+            var queues = TryAsync(() => Api.GetQueueStatusAsync(_cts.Token));
+            var anomalies = await Permissions.HasPermissionAsync(AppPermissions.InsightView)
+                ? TryAsync(async () => (await Api.GetAnomaliesAsync(15, _cts.Token)).Anomalies.OrderByDescending(a => a.DetectedUtc).Take(5).ToList())
+                : Task.FromResult<List<Anomaly>?>(null);
+            _summary = await summary;
+            _queues = await queues;
+            _anomalies = await anomalies;
+            Status.Set(L["Dashboard.Updated", Fmt.Time(DateTimeOffset.Now)]);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static async Task<TResult?> TryAsync<TResult>(Func<Task<TResult>> call) where TResult : class
+    {
+        try { return await call(); }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { return null; }
+    }
+
+    private async Task ChangeIntervalAsync(int seconds)
+    {
+        _refreshSeconds = seconds;
+        await Settings.SetAsync(seconds);
+        StartTimer();
+    }
+
+    private void StartTimer()
+    {
+        _timer?.Dispose();
+        _timer = null;
+        if (_refreshSeconds <= 0) return;
+        var timer = _timer = new PeriodicTimer(TimeSpan.FromSeconds(_refreshSeconds));
+        _ = TickAsync(timer);
+    }
+
+    private async Task TickAsync(PeriodicTimer timer)
+    {
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_cts.Token))
+            {
+                await LoadAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _timer?.Dispose();
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
+}

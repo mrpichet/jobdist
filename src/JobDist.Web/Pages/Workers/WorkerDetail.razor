@@ -1,0 +1,159 @@
+@page "/workers/{WorkerId:guid}"
+@attribute [Authorize]
+@implements IDisposable
+@* S08 Worker detail: machine, capabilities, status, held jobs, learned performance, risk. *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.WorkerView">
+    <LoadState Ready="@(_worker is not null)" NotFound="_notFound" NotFoundTitle="@L["Worker.NotFound"]" NotFoundHint="@L["Worker.NotFoundHint"]" Error="@_error" OnRetry="LoadAsync">
+        <FormTemplate Title="@Title" Description="@L["Worker.Detail.Description"]" Breadcrumbs="Crumbs" Mode="FormMode.View" Model="_worker!" OnCancel="@(() => Nav.NavigateTo("workers"))">
+            <StatusBadge><WorkerStatusBadge Status="_worker!.Status" /></StatusBadge>
+            <HeaderActions>
+                <AppButton Text="@L["Common.Refresh"]" Icon="refresh" OnClick="LoadAsync" />
+                @if (_worker!.Status == WorkerStatus.Online)
+                {
+                    <AppButton Text="@L["Worker.Drain"]" Icon="pause" Permission="@AppPermissions.WorkerDrain" Href="@($"workers/{WorkerId}/drain")" />
+                }
+                @if (_worker.Status != WorkerStatus.Unregistered)
+                {
+                    <AppButton Text="@L["Worker.Unregister"]" Icon="trash" Variant="ButtonVariant.Danger" Permission="@AppPermissions.WorkerUnregister" Href="@($"workers/{WorkerId}/unregister")" />
+                }
+            </HeaderActions>
+            <ChildContent>
+                <FormSection Title="@L["Worker.Detail.Section.Status"]">
+                    <WorkerFacts Worker="_worker" Full="true" />
+                </FormSection>
+
+                <FormSection Title="@L["Worker.Detail.Section.Machine"]">
+                    <dl class="kv">
+                        <dt>@L["Worker.CpuCores"]</dt><dd>@_worker.Spec.CpuCores</dd>
+                        <dt>@L["Worker.MemoryMb"]</dt><dd>@_worker.Spec.MemoryMb.ToString("N0") MB</dd>
+                        <dt>@L["Worker.Gpu"]</dt><dd>@_worker.Spec.GpuCount</dd>
+                        <dt>@L["Worker.Benchmark"]</dt><dd>@_worker.Spec.BenchmarkScore.ToString("N2")</dd>
+                        <dt>@L["Worker.Os"]</dt><dd>@_worker.Spec.Os</dd>
+                        <dt>@L["Worker.Version"]</dt><dd>@(_worker.Version ?? "-")</dd>
+                        <dt>@L["Worker.Pqc"]</dt><dd>@(_worker.SupportsPqc ? L["Common.Yes"] : L["Common.No"])</dd>
+                        <dt>@L["Worker.Tags"]</dt><dd>@(_worker.Tags.Count == 0 ? "-" : string.Join(", ", _worker.Tags))</dd>
+                        <dt>@L["Worker.Registered"]</dt><dd>@Fmt.Time(_worker.RegisteredUtc)</dd>
+                    </dl>
+                </FormSection>
+
+                <FormSection Title="@L["Worker.Detail.Section.Capabilities"]">
+                    <table class="simple-table">
+                        <thead><tr><th>@L["Job.JobType"]</th><th class="num">@L["Worker.MaxConcurrency"]</th><th class="num">@L["Worker.SpeedFactor"]</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _worker.Capabilities.OrderBy(c => c.JobType, StringComparer.Ordinal))
+                            {
+                                <tr><td>@c.JobType</td><td class="num">@c.MaxConcurrency</td><td class="num">@c.SpeedFactor.ToString("N2")</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </FormSection>
+
+                <FormSection Title="@L["Worker.Detail.Section.Jobs"]" Description="@L["Worker.Detail.JobsHint"]">
+                    @if (_jobs is null)
+                    {
+                        <p class="muted">@L["Worker.Detail.JobsUnavailable"]</p>
+                    }
+                    else if (_jobs.Count == 0)
+                    {
+                        <p class="muted">@L["Worker.Detail.NoJobs"]</p>
+                    }
+                    else
+                    {
+                        <table class="simple-table">
+                            <thead><tr><th>@L["Job.Id"]</th><th>@L["Job.JobType"]</th><th>@L["Job.Status"]</th><th class="num">@L["Job.Priority"]</th><th>@L["Job.Started"]</th></tr></thead>
+                            <tbody>
+                                @foreach (var j in _jobs)
+                                {
+                                    <tr><td><a href="@($"jobs/{j.JobId}")">@Fmt.Short(j.JobId)</a></td><td>@j.JobType</td><td><JobStatusBadge Status="j.Status" /></td><td class="num">@j.Priority</td><td>@Fmt.Time(j.StartedUtc)</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </FormSection>
+
+                <PermissionView Permission="@AppPermissions.InsightView">
+                    <FormSection Title="@L["Worker.Detail.Section.Performance"]">
+                        @if (_performance is not { Count: > 0 })
+                        {
+                            <p class="muted">@L["Performance.None"]</p>
+                        }
+                        else
+                        {
+                            <table class="simple-table">
+                                <thead><tr><th>@L["Job.JobType"]</th><th class="num">@L["Performance.Samples"]</th><th class="num">@L["Performance.Successes"]</th><th class="num">@L["Performance.Failures"]</th><th class="num">@L["Performance.Mean"]</th><th class="num">@L["Performance.StdDev"]</th></tr></thead>
+                                <tbody>
+                                    @foreach (var p in _performance)
+                                    {
+                                        <tr><td>@p.JobType</td><td class="num">@p.Samples.ToString("N0")</td><td class="num">@p.Successes.ToString("N0")</td><td class="num">@p.Failures.ToString("N0")</td><td class="num">@Fmt.Duration(p.MeanDurationMs)</td><td class="num">@Fmt.Duration(p.StdDevDurationMs)</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </FormSection>
+                </PermissionView>
+
+                <FormSection Title="@L["Worker.Detail.Section.Risk"]">
+                    <RiskView Risk="_risk" Error="@_riskError" />
+                </FormSection>
+            </ChildContent>
+        </FormTemplate>
+    </LoadState>
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid WorkerId { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private PermissionService Permissions { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private readonly CancellationTokenSource _cts = new();
+    private WorkerResponse? _worker;
+    private List<JobStatusResponse>? _jobs;
+    private List<PerformanceStat>? _performance;
+    private RiskAssessment? _risk;
+    private string? _riskError;
+    private bool _notFound;
+    private string? _error;
+
+    private string Title => _worker is null ? L["Worker.Detail.TitleLoading"] : L["Worker.Detail.Title", _worker.Name];
+    private IReadOnlyList<Breadcrumb> Crumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Workers"], "workers"), new(Title)];
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Loaded<WorkerResponse>.FromAsync(() => Api.GetWorkerAsync(WorkerId, _cts.Token));
+        (_worker, _notFound, _error) = (r.Value, r.NotFound, r.Error);
+        if (_worker is null) return;
+
+        var jobs = Safe(async () => (await Api.ListJobsAsync(null, null, WorkerId, 0, 200, _cts.Token)).Items.Where(j => !Fmt.IsFinal(j.Status)).ToList());
+        var perf = await Permissions.HasPermissionAsync(AppPermissions.InsightView)
+            ? Safe(async () => (await Api.GetPerformanceAsync(null, _cts.Token)).Where(p => p.WorkerId == WorkerId).OrderBy(p => p.JobType, StringComparer.Ordinal).ToList())
+            : Task.FromResult<List<PerformanceStat>?>(null);
+        try
+        {
+            _risk = await Api.GetWorkerRiskAsync(WorkerId, _cts.Token);
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
+        {
+            _riskError = ex is ApiException a ? a.Message : L["Common.NetworkError"];
+        }
+        _jobs = await jobs;
+        _performance = await perf;
+    }
+
+    private static async Task<TResult?> Safe<TResult>(Func<Task<TResult>> call) where TResult : class
+    {
+        try { return await call(); }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { return null; }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

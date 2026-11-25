@@ -1,0 +1,130 @@
+@page "/alerts/logs"
+@attribute [Authorize]
+@implements IDisposable
+@* X1 Alert history: one row per (event, recipient) delivery from the outbox, newest first. *@
+<PageTitle>@L["Menu.AlertLogs"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.AlertView">
+    <ListTemplate TItem="AlertLogRow" KeyFieldName="AlertLogId"
+                  Title="@L["Menu.AlertLogs"]" Description="@L["AlertLog.Description"]" Breadcrumbs="_breadcrumbs"
+                  Permissions="AppPermissions.AlertLogs"
+                  Items="_items" Loading="_loading" ErrorMessage="@_error" OnRetry="LoadAsync"
+                  CriteriaActiveCount="ActiveCount" OnSearch="LoadAsync" OnClear="ClearAsync"
+                  ExportTitle="@L["Menu.AlertLogs"]" ExportSubtitle="@_summary">
+        <ToolbarContent>
+            @if (_items is { Count: > 0 })
+            {
+                <span class="muted">@L["AlertLog.SuccessRate", Fmt.Percent(SuccessRate)]</span>
+            }
+        </ToolbarContent>
+        <Criteria>
+            <FieldGrid Columns="4">
+                <Field Label="@L["Common.From"]" InputId="l-from">
+                    <DxDateEdit InputId="l-from" @bind-Date="_from" DisplayFormat="dd/MM/yyyy" Format="dd/MM/yyyy" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["Common.To"]" InputId="l-to">
+                    <DxDateEdit InputId="l-to" @bind-Date="_to" DisplayFormat="dd/MM/yyyy" Format="dd/MM/yyyy" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["AlertLog.Event"]" InputId="l-event">
+                    <DxComboBox InputId="l-event" Data="EventOptions" @bind-Value="_event" ValueFieldName="@nameof(ListOption<AlertEventType?>.Value)" TextFieldName="@nameof(ListOption<AlertEventType?>.Text)"
+                                NullText="@L["Common.All"]" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["AlertLog.Status"]" InputId="l-status">
+                    <DxComboBox InputId="l-status" Data="StatusOptions" @bind-Value="_status" ValueFieldName="@nameof(ListOption<AlertSendStatus?>.Value)" TextFieldName="@nameof(ListOption<AlertSendStatus?>.Text)"
+                                NullText="@L["Common.All"]" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+            </FieldGrid>
+        </Criteria>
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Created)" Caption="@L["AlertLog.Created"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.EventText)" Caption="@L["AlertLog.Event"]" Width="170px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.SeverityText)" Caption="@L["Anomaly.Severity"]" Width="110px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Title)" Caption="@L["AlertLog.Title"]" MinWidth="220" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Recipient)" Caption="@L["AlertLog.Recipient"]" Width="150px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Channel)" Caption="@L["Recipient.Channel"]" Width="110px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Address)" Caption="@L["Recipient.Address"]" Width="160px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.StatusText)" Caption="@L["AlertLog.Status"]" Width="130px">
+                <CellDisplayTemplate>
+                    @{ var s = ((AlertLogRow)context.DataItem).Status; }
+                    <Badge Text="@Fmt.SendStatus(s)" Level="@Fmt.Level(s)" Icon="@(s == AlertSendStatus.Sent ? "check" : s == AlertSendStatus.Failed ? "x" : "clock")" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Attempts)" Caption="@L["AlertLog.Attempts"]" Width="90px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Sent)" Caption="@L["AlertLog.Sent"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Error)" Caption="@L["AlertLog.Error"]" Width="200px" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.Subject)" Caption="@L["Anomaly.Subject"]" Width="160px" Visible="false" />
+            <DxGridDataColumn FieldName="@nameof(AlertLogRow.CorrelationId)" Caption="@L["AlertLog.CorrelationId"]" Width="200px" Visible="false" />
+        </Columns>
+    </ListTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private StatusService Status { get; set; } = default!;
+
+    private static readonly IReadOnlyList<ListOption<AlertEventType?>> EventOptions = Enum.GetValues<AlertEventType>().Select(e => new ListOption<AlertEventType?>(e, Fmt.Event(e))).ToList();
+    private static readonly IReadOnlyList<ListOption<AlertSendStatus?>> StatusOptions = Enum.GetValues<AlertSendStatus>().Select(s => new ListOption<AlertSendStatus?>(s, Fmt.SendStatus(s))).ToList();
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.AlertsGroup")), new(AppText.Get("Menu.AlertLogs"))];
+    private readonly CancellationTokenSource _cts = new();
+    private DateTime? _from = DateTime.Today.AddDays(-7);
+    private DateTime? _to = DateTime.Today;
+    private AlertEventType? _event;
+    private AlertSendStatus? _status;
+    private IReadOnlyList<AlertLogRow>? _items;
+    private string? _summary;
+    private bool _loading;
+    private string? _error;
+
+    private int ActiveCount => (_event is null ? 0 : 1) + (_status is null ? 0 : 1) + (_from is null ? 0 : 1) + (_to is null ? 0 : 1);
+    private double SuccessRate => _items is not { Count: > 0 } ? 0 : 100.0 * _items.Count(i => i.Status == AlertSendStatus.Sent) / _items.Count;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (_from is { } f && _to is { } t && f > t)
+        {
+            _error = L["Common.DateRangeError"];
+            return;
+        }
+        _loading = true;
+        _error = null;
+        try
+        {
+            DateTimeOffset? from = _from is { } a ? new DateTimeOffset(a.Date) : null;
+            DateTimeOffset? to = _to is { } b ? new DateTimeOffset(b.Date.AddDays(1)) : null;
+            var page = await Splash.RunAsync(L["AlertLog.Loading"], (_, ct) => Api.ListAlertLogsAsync(from, to, _event, _status, 0, 500, ct), cancellationToken: _cts.Token);
+            _items = page.Items.Select(l => new AlertLogRow(l)).ToList();
+            _summary = $"{Fmt.Time(from)} - {Fmt.Time(to)}";
+            Status.Set(L["AlertLog.Found", page.Items.Count, page.Total]);
+        }
+        catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task ClearAsync()
+    {
+        (_from, _to, _event, _status) = (DateTime.Today.AddDays(-7), DateTime.Today, null, null);
+        return LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

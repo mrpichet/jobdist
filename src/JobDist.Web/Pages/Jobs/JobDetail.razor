@@ -1,0 +1,179 @@
+@page "/jobs/{JobId:guid}"
+@attribute [Authorize]
+@implements IDisposable
+@* S04 Job detail: status, data, result, attempt history and risk. *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.JobView">
+    @if (_notFound)
+    {
+        <ErrorView Code="404" Title="@L["Job.NotFound"]" Message="@L["Job.NotFoundHint"]" />
+    }
+    else if (_error is not null && _job is null)
+    {
+        <Alert Level="AlertLevel.Danger" Title="@L["Common.LoadFailed"]">
+            <ChildContent>@_error</ChildContent>
+            <Actions><AppButton Text="@T["Common.Retry"]" Icon="refresh" Size="ButtonSize.Small" OnClick="LoadAsync" /></Actions>
+        </Alert>
+    }
+    else if (_job is null)
+    {
+        <LoadingState />
+    }
+    else
+    {
+        <FormTemplate Title="@Title" Description="@L["Job.Detail.Description"]" Breadcrumbs="_breadcrumbs" Mode="FormMode.View" Model="_job"
+                      EditPermission="@AppPermissions.JobEdit" OnEdit="@(Fmt.IsFinal(_job.Status) ? default : EditCallback)" OnCancel="@(() => Nav.NavigateTo("jobs"))">
+            <StatusBadge><JobStatusBadge Status="_job.Status" /></StatusBadge>
+            <HeaderActions>
+                <AppButton Text="@L["Common.Refresh"]" Icon="refresh" OnClick="LoadAsync" />
+                @if (!Fmt.IsFinal(_job.Status) && _job.Status != JobStatus.CancelRequested)
+                {
+                    <AppButton Text="@L["Job.Cancel"]" Icon="x-circle" Variant="ButtonVariant.Danger" Permission="@AppPermissions.JobCancel" Href="@($"jobs/{JobId}/cancel")" />
+                }
+            </HeaderActions>
+            <ChildContent>
+                <FormSection Title="@L["Job.Detail.Section.Status"]">
+                    <JobFacts Job="_job" WorkerName="@WorkerName(_job.AssignedWorkerId)" Full="true" />
+                </FormSection>
+
+                <FormSection Title="@L["Job.Detail.Section.Data"]">
+                    <dl class="kv">
+                        <dt>@L["Job.TargetWorker"]</dt><dd>@(_job.TargetWorkerId is { } t ? WorkerName(t) ?? Fmt.Short(t) : L["Job.Submit.AnyWorker"].Value) @(_job.StrictTarget ? $"({L["Job.StrictTarget"]})" : "")</dd>
+                        <dt>@L["Job.TimeoutSeconds"]</dt><dd>@_job.TimeoutSeconds.ToString("N0")</dd>
+                        <dt>@L["Job.Tags"]</dt><dd>@(_job.Tags.Count == 0 ? "-" : string.Join(", ", _job.Tags))</dd>
+                        <dt>@L["Job.Sensitive"]</dt><dd>@(_job.Sensitive ? L["Job.Detail.SensitiveHidden"] : L["Common.No"])</dd>
+                    </dl>
+                </FormSection>
+
+                <FormSection Title="@L["Job.Detail.Section.Result"]">
+                    @if (_job.Result is null && _job.LastError is null)
+                    {
+                        <p class="muted">@L["Job.Detail.NoResult"]</p>
+                    }
+                    else
+                    {
+                        <dl class="kv">
+                            @if (_job.Result is not null) { <dt>@L["Job.Result"]</dt><dd class="mono">@_job.Result</dd> }
+                            @if (_job.LastError is not null) { <dt>@L["Job.LastError"]</dt><dd class="mono">@_job.LastError</dd> }
+                        </dl>
+                    }
+                </FormSection>
+
+                <FormSection Title="@L["Job.Detail.Section.Attempts"]" Description="@L["Job.Detail.AttemptsHint"]">
+                    @if (_attempts is null)
+                    {
+                        <LoadingState />
+                    }
+                    else if (_attempts.Count == 0)
+                    {
+                        <p class="muted">@L["Job.Detail.NoAttempts"]</p>
+                    }
+                    else
+                    {
+                        <div style="overflow-x:auto">
+                            <table class="simple-table">
+                                <thead>
+                                    <tr>
+                                        <th class="num">#</th><th>@L["Job.Worker"]</th><th>@L["Attempt.Assigned"]</th><th>@L["Job.Started"]</th><th>@L["Attempt.Finished"]</th>
+                                        <th class="num">@L["Attempt.QueueWait"]</th><th class="num">@L["Job.Duration"]</th><th>@L["Attempt.Outcome"]</th><th class="num">@L["Attempt.Score"]</th><th>@L["Job.LastError"]</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var a in _attempts.OrderBy(a => a.Attempt))
+                                    {
+                                        <tr>
+                                            <td class="num">@a.Attempt</td>
+                                            <td><a href="@($"workers/{a.WorkerId}")">@(a.WorkerName ?? Fmt.Short(a.WorkerId))</a></td>
+                                            <td>@Fmt.Time(a.AssignedUtc)</td><td>@Fmt.Time(a.StartedUtc)</td><td>@Fmt.Time(a.FinishedUtc)</td>
+                                            <td class="num">@Fmt.Duration(a.QueueWaitMs)</td><td class="num">@Fmt.Duration(a.DurationMs)</td>
+                                            <td>@Fmt.Outcome(a.Outcome)</td><td class="num">@a.SchedulerScore.ToString("N2")</td><td>@a.Error</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </FormSection>
+
+                <FormSection Title="@L["Job.Detail.Section.Risk"]">
+                    <RiskView Risk="_risk" Error="@_riskError" />
+                </FormSection>
+            </ChildContent>
+        </FormTemplate>
+    }
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid JobId { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private readonly CancellationTokenSource _cts = new();
+    private JobStatusResponse? _job;
+    private List<JobAttemptResponse>? _attempts;
+    private Dictionary<Guid, string> _workers = [];
+    private RiskAssessment? _risk;
+    private string? _riskError;
+    private string? _error;
+    private bool _notFound;
+
+    private string Title => L["Job.Detail.Title", Fmt.Short(JobId)];
+    private IReadOnlyList<Breadcrumb> _breadcrumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Jobs"], "jobs"), new(Title)];
+    private EventCallback EditCallback => EventCallback.Factory.Create(this, () => Nav.NavigateTo($"jobs/{JobId}/edit"));
+
+    private string? WorkerName(Guid? id) => id is { } g ? _workers.GetValueOrDefault(g) : null;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        try
+        {
+            _job = await Api.GetJobAsync(JobId, _cts.Token);
+        }
+        catch (ApiException ex) when (ex.Status == System.Net.HttpStatusCode.NotFound)
+        {
+            _notFound = true;
+            return;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            return;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+            return;
+        }
+
+        // Attempts, worker names and risk are loaded independently; one failing does not hide the others.
+        var attempts = Safe(() => Api.GetAttemptsAsync(JobId, _cts.Token));
+        var workers = Safe(() => Api.ListWorkersAsync(true, _cts.Token));
+        try
+        {
+            _risk = await Api.GetJobRiskAsync(JobId, _cts.Token);
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
+        {
+            _riskError = ex is ApiException a ? a.Message : L["Common.NetworkError"];
+        }
+        _attempts = await attempts ?? [];
+        _workers = (await workers)?.ToDictionary(w => w.WorkerId, w => w.Name) ?? _workers;
+    }
+
+    private static async Task<TResult?> Safe<TResult>(Func<Task<TResult>> call) where TResult : class
+    {
+        try { return await call(); }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { return null; }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

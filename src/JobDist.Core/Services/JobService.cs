@@ -22,6 +22,7 @@ public sealed class JobService(
     IWorkerCommandDAO commands,
     PayloadProtectionService protector,
     WorkerSignalService signals,
+    IQueueAdmission admission,
     JobDistMetrics metrics,
     IOptions<JobDistOptions> options,
     TimeProvider time,
@@ -53,6 +54,9 @@ public sealed class JobService(
 
         // Step 2: validate and build the job (business rules beyond the contract annotations).
         var job = await BuildJobAsync(request, submittedBy, ct).ConfigureAwait(false);
+
+        // Step 2b: queue threshold (Q17) - over the limit → alert + 429. Duplicates above were not counted (they add nothing to the queue).
+        await admission.EnsureCapacityAsync(new Dictionary<string, int> { [job.JobType] = 1 }, ct).ConfigureAwait(false);
 
         // Step 3: persist; a concurrent duplicate with the same key loses on the unique index → return the winner.
         try
@@ -123,7 +127,14 @@ public sealed class JobService(
             responses[i] = new SubmitJobResponse(job.JobId, job.Status, false);
         }
 
-        // Step 2: bulk insert and metrics per type.
+        // Step 2: queue thresholds for the whole batch - one type over the limit rejects the whole batch (no partial insert),
+        // so the client can retry the same batch with the same idempotency keys later.
+        if (toInsert.Count > 0)
+        {
+            await admission.EnsureCapacityAsync(toInsert.GroupBy(j => j.JobType, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count()), ct).ConfigureAwait(false);
+        }
+
+        // Step 3: bulk insert and metrics per type.
         if (toInsert.Count > 0)
         {
             await jobs.InsertBatchAsync(toInsert, ct).ConfigureAwait(false);

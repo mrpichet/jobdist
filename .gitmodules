@@ -1,0 +1,7 @@
+[submodule "external/common"]
+	path = external/common
+	url = https://github.com/mrpichet/common
+[submodule "external/webcommon"]
+	path = external/webcommon
+	url = https://github.com/mrpichet/webcommon
+	branch = main

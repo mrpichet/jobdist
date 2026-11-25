@@ -21,7 +21,9 @@ COPY src/JobDist.Core/JobDist.Core.csproj src/JobDist.Core/
 COPY src/JobDist.Infrastructure/JobDist.Infrastructure.csproj src/JobDist.Infrastructure/
 COPY src/JobDist.Mcp/JobDist.Mcp.csproj src/JobDist.Mcp/
 COPY src/JobDist.ServiceDefaults/JobDist.ServiceDefaults.csproj src/JobDist.ServiceDefaults/
-COPY src/JobDist.UI/JobDist.UI.csproj src/JobDist.UI/
+COPY src/JobDist.Web/JobDist.Web.csproj src/JobDist.Web/
+# Git submodules (run `git submodule update --init` before building): mrpichet/common and mrpichet/webcommon.
+COPY external/ external/
 COPY src/JobDist.Server/JobDist.Server.csproj src/JobDist.Server/
 RUN dotnet restore src/JobDist.Server/JobDist.Server.csproj
 # Then the sources (db/ holds the embedded schema scripts).

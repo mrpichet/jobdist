@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <!--
     JobDist.Server: one process, three front doors over the same business layer:
-      REST Web API (ASP.NET Core controllers) /api/*, MCP server (Streamable HTTP) /mcp, Blazor WebAssembly UI /.
+      REST Web API (ASP.NET Core controllers) /api/*, MCP server (Streamable HTTP) /mcp, Blazor WebAssembly web console (JobDist.Web) /.
   -->
   <PropertyGroup>
     <RootNamespace>JobDist.Server</RootNamespace>
@@ -14,12 +14,19 @@
     <ProjectReference Include="..\JobDist.Infrastructure\JobDist.Infrastructure.csproj" />
     <ProjectReference Include="..\JobDist.Mcp\JobDist.Mcp.csproj" />
     <ProjectReference Include="..\JobDist.ServiceDefaults\JobDist.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\JobDist.UI\JobDist.UI.csproj" />
+    <ProjectReference Include="..\JobDist.Web\JobDist.Web.csproj" />
+    <!-- mrpichet/common (git submodule external/common): AuthServer JWT validation and the LogServer logger provider. -->
+    <ProjectReference Include="..\..\external\common\src\Common.AspNetCore\Common.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\external\common\src\Common.Logging\Common.Logging.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+    <PackageReference Include="Asp.Versioning.Mvc" />
+    <PackageReference Include="Yarp.ReverseProxy" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JobDist.Tests" />

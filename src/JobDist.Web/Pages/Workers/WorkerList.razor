@@ -1,0 +1,113 @@
+@page "/workers"
+@attribute [Authorize]
+@implements IDisposable
+@* S07 Worker list. Workers register themselves through the SDK, so there is no "new" button. *@
+<PageTitle>@L["Menu.Workers"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.WorkerView">
+    <ListTemplate TItem="WorkerRow" KeyFieldName="WorkerId"
+                  Title="@L["Menu.Workers"]" Description="@L["Worker.List.Description"]" Breadcrumbs="_breadcrumbs"
+                  Permissions="AppPermissions.Workers"
+                  Items="Filtered" Loading="_loading" ErrorMessage="@_error" OnRetry="LoadAsync"
+                  CriteriaActiveCount="ActiveCount" OnSearch="LoadAsync" OnClear="ClearAsync"
+                  OnView="@(r => Nav.NavigateTo($"workers/{r.WorkerId}"))"
+                  RowActionsWidth="180px" ExportTitle="@L["Menu.Workers"]">
+        <ExtraRowActions Context="row">
+            @if (row.Status == WorkerStatus.Online)
+            {
+                <AppButton Icon="pause" IconOnly="true" Size="ButtonSize.Small" Title="@L["Worker.Drain"]" Permission="@AppPermissions.WorkerDrain"
+                           OnClick="@(() => Nav.NavigateTo($"workers/{row.WorkerId}/drain"))" />
+            }
+            @if (row.CanAct)
+            {
+                <AppButton Icon="trash" IconOnly="true" Size="ButtonSize.Small" Title="@L["Worker.Unregister"]" Permission="@AppPermissions.WorkerUnregister"
+                           OnClick="@(() => Nav.NavigateTo($"workers/{row.WorkerId}/unregister"))" />
+            }
+        </ExtraRowActions>
+        <Criteria>
+            <FieldGrid Columns="3">
+                <Field Label="@L["Worker.Status"]" InputId="c-status">
+                    <DxComboBox InputId="c-status" Data="StatusOptions" @bind-Value="_status" ValueFieldName="@nameof(ListOption<WorkerStatus?>.Value)" TextFieldName="@nameof(ListOption<WorkerStatus?>.Text)"
+                                NullText="@L["Common.All"]" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["Worker.IncludeUnregistered"]" InputId="c-unreg">
+                    <DxCheckBox InputId="c-unreg" @bind-Checked="_includeUnregistered" CheckType="CheckType.Switch">@(_includeUnregistered ? L["Common.Yes"] : L["Common.No"])</DxCheckBox>
+                </Field>
+            </FieldGrid>
+        </Criteria>
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.Name)" Caption="@L["Worker.Name"]" MinWidth="160" FixedPosition="GridColumnFixedPosition.Left" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.StatusText)" Caption="@L["Worker.Status"]" Width="140px">
+                <CellDisplayTemplate><WorkerStatusBadge Status="@(((WorkerRow)context.DataItem).Status)" /></CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.LoadText)" Caption="@L["Worker.Load"]" Width="110px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.Cpu)" Caption="@L["Worker.Cpu"]" DisplayFormat="N1" Width="90px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.Memory)" Caption="@L["Worker.Memory"]" DisplayFormat="N1" Width="100px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.LastHeartbeat)" Caption="@L["Worker.LastHeartbeat"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.OfflineCount)" Caption="@L["Worker.OfflineCount"]" Width="110px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.PqcText)" Caption="@L["Worker.Pqc"]" Width="90px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.Version)" Caption="@L["Worker.Version"]" Width="110px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.Tags)" Caption="@L["Worker.Tags"]" Width="150px" />
+            <DxGridDataColumn FieldName="@nameof(WorkerRow.JobTypes)" Caption="@L["Worker.JobTypes"]" Width="200px" Visible="false" />
+        </Columns>
+    </ListTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private StatusService Status { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private static readonly IReadOnlyList<ListOption<WorkerStatus?>> StatusOptions = Enum.GetValues<WorkerStatus>().Select(s => new ListOption<WorkerStatus?>(s, Fmt.Status(s))).ToList();
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Workers"))];
+    private readonly CancellationTokenSource _cts = new();
+    private WorkerStatus? _status;
+    private bool _includeUnregistered;
+    private List<WorkerRow>? _items;
+    private bool _loading;
+    private string? _error;
+
+    private int ActiveCount => (_status is null ? 0 : 1) + (_includeUnregistered ? 1 : 0);
+    private IReadOnlyList<WorkerRow>? Filtered => _items is null ? null : _status is { } s ? _items.Where(w => w.Status == s).ToList() : _items;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var include = _includeUnregistered || _status == WorkerStatus.Unregistered;
+            _items = (await Api.ListWorkersAsync(include, _cts.Token)).OrderBy(w => w.Name, StringComparer.CurrentCulture).Select(w => new WorkerRow(w)).ToList();
+            Status.Set(L["Worker.List.Found", Filtered!.Count]);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task ClearAsync()
+    {
+        (_status, _includeUnregistered) = (null, false);
+        return LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

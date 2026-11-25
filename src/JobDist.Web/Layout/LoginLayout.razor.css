@@ -1,0 +1,75 @@
+/* หน้า Login เต็มหน้าจอ: ซ้าย = Carousel เต็มความสูง, ขวา = แผง Login */
+.auth-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(420px, 36vw, 560px);
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--color-surface);
+}
+.auth-layout__aside {
+    position: sticky;
+    top: 0;
+    min-width: 0;
+    height: 100vh;
+    height: 100dvh;
+    /* Carousel ชิดขอบจอ ไม่มีมุมโค้ง */
+    --login-carousel-radius: 0;
+}
+.auth-layout__aside:empty { display: none; }
+.auth-layout:has(.auth-layout__aside:empty) { grid-template-columns: minmax(0, 1fr); background: var(--color-bg); }
+
+.auth-layout__pane {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-width: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--color-surface);
+    border-left: var(--border-width) solid var(--color-border);
+}
+.auth-layout:has(.auth-layout__aside:empty) .auth-layout__pane { background: transparent; border-left: 0; }
+
+.auth-layout__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-6);
+    color: var(--color-text);
+}
+.auth-layout__tools { display: flex; align-items: center; gap: var(--space-2); }
+.auth-layout__main { display: grid; place-items: center; padding: var(--space-5) var(--space-6); }
+.auth-layout__card { width: min(100%, 400px); }
+/* ไม่มีสไลด์: ฟอร์มอยู่ในการ์ดกลางจอ */
+.auth-layout:has(.auth-layout__aside:empty) .auth-layout__card {
+    width: min(100%, 420px);
+    padding: var(--space-6);
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-top: 3px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+}
+.auth-layout__footer {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-6);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+/* ปุ่มเลือกภาษาบนพื้นสว่างของหน้า Login */
+.auth-layout__tools ::deep .lang-switch .dxbl-btn { color: var(--color-text); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-md); }
+
+/* จอแคบ: ซ่อน Carousel แผง Login เต็มจอ */
+@media (max-width: 900px) {
+    .auth-layout { grid-template-columns: minmax(0, 1fr); }
+    .auth-layout__aside { display: none; }
+    .auth-layout__pane { border-left: 0; }
+}
+@media (max-width: 480px) {
+    .auth-layout__top { padding: var(--space-3) var(--space-4); }
+    .auth-layout__main { padding: var(--space-4); align-items: start; }
+    .auth-layout:has(.auth-layout__aside:empty) .auth-layout__card { padding: 0; border: 0; background: transparent; }
+    .auth-layout__footer { padding: var(--space-3) var(--space-4); }
+}

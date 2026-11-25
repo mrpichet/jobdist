@@ -7,7 +7,7 @@
     <Project Path="src/JobDist.ServiceDefaults/JobDist.ServiceDefaults.csproj" />
     <Project Path="src/JobDist.Server/JobDist.Server.csproj" />
     <Project Path="src/JobDist.McpServer/JobDist.McpServer.csproj" />
-    <Project Path="src/JobDist.UI/JobDist.UI.csproj" />
+    <Project Path="src/JobDist.Web/JobDist.Web.csproj" />
     <Project Path="src/JobDist.Client/JobDist.Client.csproj" />
     <Project Path="src/JobDist.Worker.Sdk/JobDist.Worker.Sdk.csproj" />
   </Folder>

@@ -240,23 +240,12 @@ public sealed class AnalyticsTests
 
     // ------------------------------------------------------------------------------------------------ alerting
 
-    private sealed class FakeSender(bool succeed = true) : IAlertSender
-    {
-        public List<AdminAlertDTO> Sent { get; } = [];
-
-        public Task<bool> SendAsync(AdminAlertDTO alert, CancellationToken ct)
-        {
-            Sent.Add(alert);
-            return Task.FromResult(succeed);
-        }
-    }
-
     [TestMethod]
     public async Task Alerts_respect_severity_filter_and_cooldown()
     {
         using var host = new TestHost();
-        var sender = new FakeSender();
-        var alerts = new AlertService(sender, host.Get<JobDistMetrics>(), Options.Create(new AnomalyOptions { AlertCooldownMinutes = 30 }), host.Time, NullLogger<AlertService>.Instance);
+        var alerts = new AlertService(host.Get<AlertDispatchService>(), host.Get<JobDistMetrics>(),
+            Options.Create(new AnomalyOptions { AlertCooldownMinutes = 30 }), host.Time, NullLogger<AlertService>.Instance);
         var critical = new AnomalyDTO(AnomalyKind.FailoverStorm, AnomalySeverity.Critical, "cluster", "storm", 30, 20, 30, TestHost.Start);
         var info = new AnomalyDTO(AnomalyKind.SlowExecution, AnomalySeverity.Info, "jobType:x", "slow", 1, 1, 1, TestHost.Start);
         var report = new AnomalyReportDTO(TestHost.Start.AddMinutes(-15), TestHost.Start, [critical, info]);
@@ -264,9 +253,19 @@ public sealed class AnalyticsTests
         Assert.HasCount(1, await alerts.NotifyAsync(report, false, CancellationToken.None));
         Assert.IsEmpty(await alerts.NotifyAsync(report, false, CancellationToken.None), "Cooldown suppresses repeats.");
         host.Time.Advance(TimeSpan.FromMinutes(31));
-        Assert.HasCount(1, await alerts.NotifyAsync(report, false, CancellationToken.None));
-        Assert.HasCount(2, sender.Sent);
-        StringAssert.Contains(sender.Sent[0].Title, "Critical");
+        var later = report with { FromUtc = report.FromUtc.AddMinutes(31), ToUtc = report.ToUtc.AddMinutes(31) };
+        Assert.HasCount(1, await alerts.NotifyAsync(later, false, CancellationToken.None));
+
+        // Re-publishing the same scan (e.g. from a second instance) is deduplicated by the outbox event key.
+        var other = new AlertService(host.Get<AlertDispatchService>(), host.Get<JobDistMetrics>(),
+            Options.Create(new AnomalyOptions { AlertCooldownMinutes = 30 }), host.Time, NullLogger<AlertService>.Instance);
+        Assert.HasCount(1, await other.NotifyAsync(later, false, CancellationToken.None));
+
+        // Each sent alert is queued in the outbox (no recipient configured, so it is a Skipped history row).
+        var (items, _) = await host.Get<JobDist.Core.DAO.IAlertOutboxDAO>().QueryAsync(
+            new AlertOutboxQueryDTO(TestHost.Start.AddDays(-1), TestHost.Start.AddDays(1), AlertEventType.AnomalyDetected, null, null, 0, 50));
+        Assert.HasCount(2, items);
+        Assert.IsTrue(items.All(i => i.Title.Contains("Critical", StringComparison.Ordinal)));
     }
 
     // ------------------------------------------------------------------------------------------------ risk

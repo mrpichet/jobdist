@@ -1,0 +1,79 @@
+@page "/jobs/{JobId:guid}/edit"
+@attribute [Authorize]
+@* S05 Change priority (the only editable field of a job; only while it has not finished). *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.JobEdit">
+    <LoadState Ready="@(_job is not null)" NotFound="_notFound" NotFoundTitle="@L["Job.NotFound"]" NotFoundHint="@L["Job.NotFoundHint"]" Error="@_error" OnRetry="LoadAsync">
+        <FormTemplate Title="@Title" Description="@L["Job.Priority.Description"]" Breadcrumbs="Crumbs" Mode="@(Fmt.IsFinal(_job!.Status) ? FormMode.View : FormMode.Edit)" Model="_model"
+                      SavePermission="@AppPermissions.JobEdit" OnSave="SaveAsync" OnCancel="Back">
+            <Notice>
+                @if (Fmt.IsFinal(_job.Status))
+                {
+                    <Alert Level="AlertLevel.Warning" Title="@L["Job.Priority.Final"]">@L["Job.Priority.FinalHint"]</Alert>
+                }
+            </Notice>
+            <ChildContent>
+                <FormSection Title="@L["Job.Detail.Section.Status"]">
+                    <JobFacts Job="_job" />
+                </FormSection>
+                <FormSection Title="@L["Job.Priority"]">
+                    <FieldGrid Columns="2">
+                        <FormField Label="@L["Job.Priority.New"]" InputId="priority" For="() => _model.Priority" Required Hint="@L["Job.Submit.PriorityHint"]">
+                            <DxSpinEdit InputId="priority" @bind-Value="_model.Priority" MinValue="0" MaxValue="100" />
+                        </FormField>
+                    </FieldGrid>
+                </FormSection>
+            </ChildContent>
+        </FormTemplate>
+    </LoadState>
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid JobId { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private JobStatusResponse? _job;
+    private PriorityModel _model = new();
+    private bool _notFound;
+    private string? _error;
+
+    private string Title => L["Job.Priority.Title", Fmt.Short(JobId)];
+    private IReadOnlyList<Breadcrumb> Crumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Jobs"], "jobs"), new(L["Job.Detail.Title", Fmt.Short(JobId)], $"jobs/{JobId}"), new(L["Job.Priority"])];
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Loaded<JobStatusResponse>.FromAsync(() => Api.GetJobAsync(JobId, CancellationToken.None));
+        (_job, _notFound, _error) = (r.Value, r.NotFound, r.Error);
+        if (_job is not null) _model = new PriorityModel { Priority = _job.Priority };
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        try
+        {
+            await Splash.RunAsync(L["Common.Saving"], (_, ct) => Api.ChangePriorityAsync(JobId, _model.Priority, ct), canCancel: false);
+            Toasts.Success(L["Job.Priority.Saved", _model.Priority]);
+            Back();
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+            return false;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo($"jobs/{JobId}");
+}

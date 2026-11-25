@@ -1,0 +1,6 @@
+@* Job status: icon + text (never color alone). *@
+<Badge Text="@Fmt.Status(Status)" Level="@Fmt.Level(Status)" Icon="@Fmt.Icon(Status)" />
+
+@code {
+    [Parameter, EditorRequired] public JobStatus Status { get; set; }
+}

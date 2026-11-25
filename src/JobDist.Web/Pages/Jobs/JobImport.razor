@@ -1,0 +1,161 @@
+@page "/jobs/import"
+@attribute [Authorize]
+@using System.Security.Cryptography
+@using System.Text
+@using System.Text.Json
+@* X3 Submit many jobs from an Excel / CSV file (webcommon ImportDialog, Q6): every row is checked in the browser, then one
+   POST /api/v1/jobs/batch (max 5,000). Rows without an idempotency key get "import:<file hash>:<row>", so importing the same file again
+   does not create the jobs twice. *@
+<PageTitle>@L["Menu.ImportJobs"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.JobCreate">
+    <PageHeader Title="@L["Menu.ImportJobs"]" Description="@L["Import.Description"]" Breadcrumbs="_breadcrumbs">
+        <Actions>
+            <AppButton Text="@L["Import.Choose"]" Icon="upload" Variant="ButtonVariant.Primary" Permission="@AppPermissions.JobCreate" OnClick="@(() => _open = true)" />
+        </Actions>
+    </PageHeader>
+
+    <div class="page-stack">
+        <Card Title="@L["Import.HowTitle"]">
+            <ol>
+                <li>@L["Import.Step1"]</li>
+                <li>@L["Import.Step2"]</li>
+                <li>@L["Import.Step3"]</li>
+                <li>@L["Import.Step4"]</li>
+            </ol>
+            <table class="simple-table">
+                <thead><tr><th>@L["Import.Column"]</th><th>@L["Import.Required"]</th><th>@L["Import.Meaning"]</th></tr></thead>
+                <tbody>
+                    @foreach (var c in _schema.Columns)
+                    {
+                        <tr><td>@c.Header</td><td>@(c.Required ? L["Common.Yes"] : L["Common.No"])</td><td>@c.Hint</td></tr>
+                    }
+                </tbody>
+            </table>
+        </Card>
+
+        @if (_queueFull is not null)
+        {
+            <Alert Level="AlertLevel.Danger" Title="@L["Job.Submit.QueueFullTitle"]">@_queueFull</Alert>
+        }
+
+        @if (_results is { } results)
+        {
+            <Card Title="@L["Import.ResultTitle"]" Description="@L["Import.ResultSummary", results.Count(r => !r.Duplicate), results.Count(r => r.Duplicate)]">
+                <HeaderActions><AppButton Text="@L["Menu.Jobs"]" Icon="file-text" Href="jobs?status=Pending" Size="ButtonSize.Small" /></HeaderActions>
+                <ChildContent>
+                    <table class="simple-table">
+                        <thead><tr><th>#</th><th>@L["Job.Id"]</th><th>@L["Job.Status"]</th><th>@L["Import.Duplicate"]</th></tr></thead>
+                        <tbody>
+                            @foreach (var (r, i) in results.Take(200).Select((r, i) => (r, i)))
+                            {
+                                <tr><td>@(i + 1)</td><td><a href="@($"jobs/{r.JobId}")">@Fmt.Short(r.JobId)</a></td><td><JobStatusBadge Status="r.Status" /></td><td>@(r.Duplicate ? L["Common.Yes"] : L["Common.No"])</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (results.Count > 200)
+                    {
+                        <p class="muted">@L["Import.MoreRows", results.Count - 200]</p>
+                    }
+                </ChildContent>
+            </Card>
+        }
+    </div>
+
+    <ImportDialog TItem="JobSubmitModel" IsOpen="_open" Schema="_schema" Title="@L["Menu.ImportJobs"]"
+                  Description="@L["Import.DialogDescription"]" DoneHint="@L["Import.DoneHint"]"
+                  OnImport="ImportAsync" OnClose="@(_ => _open = false)" />
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Jobs"), "jobs"), new(AppText.Get("Menu.ImportJobs"))];
+    private ImportSchema<JobSubmitModel> _schema = default!;
+    private List<SubmitJobResponse>? _results;
+    private string? _queueFull;
+    private bool _open;
+
+    protected override void OnInitialized()
+    {
+        string[] yes = ["true", "yes", "y", "1", "ใช่"];
+        string[] no = ["false", "no", "n", "0", "ไม่"];
+        _schema = new ImportSchema<JobSubmitModel>
+        {
+            Name = L["Menu.ImportJobs"],
+            Create = () => new JobSubmitModel(),
+            Columns =
+            [
+                Col("JobType", true, "image.resize", (m, v) => m.JobType = v?.Trim()),
+                Col("Payload", false, "{\"url\":\"https://example.com/a.png\"}", (m, v) => m.Payload = string.IsNullOrWhiteSpace(v) ? null : v),
+                Col("Priority", false, "50", (m, v) => m.Priority = Int(v) ?? 50),
+                Col("TargetWorkerId", false, "", (m, v) => m.TargetWorkerId = string.IsNullOrWhiteSpace(v) ? null : Guid.TryParse(v, out var g) ? g : throw new FormatException(L["Import.Invalid.Guid"])),
+                Col("StrictTarget", false, "false", (m, v) => m.StrictTarget = ImportParsers.Boolean(v, L["Import.Invalid.Bool"], yes, no) ?? false),
+                Col("MaxAttempts", false, "3", (m, v) => m.MaxAttempts = Int(v)),
+                Col("TimeoutSeconds", false, "300", (m, v) => m.TimeoutSeconds = Int(v)),
+                Col("RunAt", false, "", (m, v) => m.RunAtLocal = string.IsNullOrWhiteSpace(v) ? null
+                    : DateTime.TryParseExact(v.Trim(), ["yyyy-MM-dd HH:mm", "yyyy-MM-dd", "dd/MM/yyyy HH:mm", "dd/MM/yyyy"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d
+                    : throw new FormatException(L["Import.Invalid.Date"])),
+                Col("IdempotencyKey", false, "", (m, v) => m.IdempotencyKey = string.IsNullOrWhiteSpace(v) ? null : v.Trim()),
+                Col("Sensitive", false, "false", (m, v) => m.Sensitive = ImportParsers.Boolean(v, L["Import.Invalid.Bool"], yes, no) ?? false),
+                Col("Tags", false, "batch-1, night", (m, v) => m.Tags = v),
+            ],
+            DuplicateKey = m => m.IdempotencyKey
+        };
+    }
+
+    private int? Int(string? v)
+    {
+        var d = ImportParsers.Decimal(v, L["Import.Invalid.Number"]);
+        return d is null ? null : d == Math.Truncate(d.Value) && d is >= int.MinValue and <= int.MaxValue ? (int)d.Value : throw new FormatException(L["Import.Invalid.Number"]);
+    }
+
+    // Header = text in the current language; the property name and the other language are accepted too.
+    private ImportColumn<JobSubmitModel> Col(string field, bool required, string example, Action<JobSubmitModel, string?> apply) => new(L[$"Import.Col.{field}"], apply)
+    {
+        Required = required,
+        Example = example,
+        Hint = L[$"Import.Hint.{field}"],
+        Aliases = [field, AppTextIn("th", $"Import.Col.{field}"), AppTextIn("en", $"Import.Col.{field}")]
+    };
+
+    private static string AppTextIn(string culture, string key)
+    {
+        var rm = new System.Resources.ResourceManager("JobDist.Web.Localization.AppText", typeof(AppText).Assembly);
+        return rm.GetString(key, CultureInfo.GetCultureInfo(culture)) ?? key;
+    }
+
+    private async Task<ImportOutcome> ImportAsync(IReadOnlyList<ImportRow<JobSubmitModel>> rows)
+    {
+        _queueFull = null;
+        // Step 1: build requests; the file hash makes the per-row keys stable when the same file is imported again.
+        var requests = rows.Select(r => r.Item.ToRequest()).ToList();
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(requests))))[..16].ToLowerInvariant();
+        requests = requests.Select((q, i) => q.IdempotencyKey is null ? q with { IdempotencyKey = $"import:{hash}:{rows[i].RowNumber}" } : q).ToList();
+
+        // Step 2: one batch call (all or nothing on the server).
+        try
+        {
+            _results = await Splash.RunAsync(L["Import.Saving", requests.Count], (_, ct) => Api.SubmitBatchAsync(requests, "import-" + hash, ct), canCancel: false);
+            return new ImportOutcome(_results.Count(r => !r.Duplicate), _results.Count(r => r.Duplicate) is var dup and > 0 ? [L["Import.DuplicatesSkipped", dup].Value] : []);
+        }
+        catch (ApiException ex) when (ex.ErrorCode == "queue_full")
+        {
+            _queueFull = L["Job.Submit.QueueFull", ex.Message];
+            return new ImportOutcome(0, [_queueFull]);
+        }
+        catch (ApiException ex)
+        {
+            return new ImportOutcome(0, [ex.Message]);
+        }
+        catch (HttpRequestException)
+        {
+            return new ImportOutcome(0, [L["Common.NetworkError"].Value]);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+}

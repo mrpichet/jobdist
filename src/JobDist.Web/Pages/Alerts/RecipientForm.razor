@@ -1,0 +1,171 @@
+@page "/alerts/recipients/new"
+@page "/alerts/recipients/{Id:guid}"
+@page "/alerts/recipients/{Id:guid}/edit"
+@attribute [Authorize]
+@* X2 Alert recipient form (New / View / Edit by URL). On edit an empty address keeps the stored one (never shown in full). *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@(_mode == FormMode.View ? AppPermissions.AlertView : AppPermissions.AlertManage)">
+    <LoadState Ready="@(_model is not null)" NotFound="_notFound" NotFoundTitle="@L["Recipient.NotFound"]" Error="@_error" OnRetry="LoadAsync">
+        <FormTemplate Title="@Title" Description="@L["Recipient.Form.Description"]" Breadcrumbs="Crumbs" Mode="_mode" Model="_model!"
+                      SavePermission="@AppPermissions.AlertManage" EditPermission="@AppPermissions.AlertManage"
+                      OnSave="SaveAsync" OnCancel="Back" OnEdit="@(() => Nav.NavigateTo($"alerts/recipients/{Id}/edit"))">
+            <HeaderActions>
+                @if (_mode == FormMode.View)
+                {
+                    <AppButton Text="@L["Recipient.Test"]" Icon="send" Permission="@AppPermissions.AlertManage" Busy="_testing" OnClick="TestAsync" />
+                }
+            </HeaderActions>
+            <Notice>
+                @if (_channels.Count == 0)
+                {
+                    <Alert Level="AlertLevel.Info" Title="@L["Recipient.NoChannels"]">@L["Recipient.NoChannelsHint"]</Alert>
+                }
+            </Notice>
+            <ChildContent>
+                <FormSection Title="@L["Recipient.Form.Section.Who"]">
+                    <FieldGrid Columns="2">
+                        <FormField Label="@L["Recipient.Name"]" InputId="name" For="() => _model!.Name" Required>
+                            <DxTextBox InputId="name" @bind-Text="_model!.Name" Attributes="@(new Dictionary<string, object> { ["maxlength"] = "200" })" />
+                        </FormField>
+                        <FormField Label="@L["Recipient.Channel"]" InputId="channel" For="() => _model!.Channel" Required Hint="@L["Recipient.ChannelHint"]">
+                            <DxComboBox InputId="channel" Data="_channels" @bind-Value="_model!.Channel" AllowUserInput="true" />
+                        </FormField>
+                        <FormField Label="@L["Recipient.Address"]" InputId="address" For="() => _model!.Address" Required="@(_mode == FormMode.New)" Full
+                                   Hint="@(_mode == FormMode.New ? L["Recipient.AddressHint"] : L["Recipient.AddressKeepHint", _current?.AddressMasked ?? ""])">
+                            @if (_mode == FormMode.View)
+                            {
+                                <DxTextBox InputId="address" Text="@_current?.AddressMasked" ReadOnly="true" />
+                            }
+                            else
+                            {
+                                <DxTextBox InputId="address" @bind-Text="_model!.Address" Attributes="@(new Dictionary<string, object> { ["maxlength"] = "512", ["autocomplete"] = "off" })" />
+                            }
+                        </FormField>
+                    </FieldGrid>
+                </FormSection>
+                <FormSection Title="@L["Recipient.Form.Section.What"]" Description="@L["Recipient.Form.Section.WhatHint"]">
+                    <FieldGrid Columns="2">
+                        <FormField Label="@L["Recipient.Events"]" InputId="events" For="() => _model!.EventTypes" Required Full>
+                            <DxTagBox InputId="events" Data="EventOptions" @bind-Values="_model!.EventTypes"
+                                      ValueFieldName="@nameof(ListOption<AlertEventType>.Value)" TextFieldName="@nameof(ListOption<AlertEventType>.Text)" />
+                        </FormField>
+                        <FormField Label="@L["Recipient.MinSeverity"]" InputId="severity" For="() => _model!.MinSeverity">
+                            <DxComboBox InputId="severity" Data="SeverityOptions" @bind-Value="_model!.MinSeverity"
+                                        ValueFieldName="@nameof(ListOption<AlertSeverity>.Value)" TextFieldName="@nameof(ListOption<AlertSeverity>.Text)" />
+                        </FormField>
+                        <Field Label="@L["Common.Status"]" InputId="enabled">
+                            <DxCheckBox InputId="enabled" @bind-Checked="_model!.Enabled" CheckType="CheckType.Switch">@(_model!.Enabled ? L["Common.Enabled"] : L["Common.Disabled"])</DxCheckBox>
+                        </Field>
+                    </FieldGrid>
+                </FormSection>
+            </ChildContent>
+            <AuditInfo>
+                @if (_current is not null)
+                {
+                    <span>@L["Common.UpdatedByAt", _current.UpdatedBy ?? "-", Fmt.Time(_current.UpdatedUtc)]</span>
+                }
+            </AuditInfo>
+        </FormTemplate>
+    </LoadState>
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private static readonly IReadOnlyList<ListOption<AlertEventType>> EventOptions =
+        Enum.GetValues<AlertEventType>().Where(e => e != AlertEventType.Test).Select(e => new ListOption<AlertEventType>(e, Fmt.Event(e))).ToList();
+    private static readonly IReadOnlyList<ListOption<AlertSeverity>> SeverityOptions = Enum.GetValues<AlertSeverity>().Select(s => new ListOption<AlertSeverity>(s, Fmt.Severity(s))).ToList();
+
+    private readonly string _idempotencyKey = Guid.NewGuid().ToString("N");
+    private FormMode _mode = FormMode.New;
+    private RecipientModel? _model;
+    private AlertRecipientResponse? _current;
+    private List<string> _channels = [];
+    private bool _notFound;
+    private bool _testing;
+    private string? _error;
+
+    private string Title => _mode switch
+    {
+        FormMode.New => L["Recipient.New"],
+        FormMode.Edit => L["Recipient.EditTitle", _current?.Name ?? ""],
+        _ => L["Recipient.ViewTitle", _current?.Name ?? ""]
+    };
+
+    private IReadOnlyList<Breadcrumb> Crumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Recipients"], "alerts/recipients"), new(Title)];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
+        _mode = Id is null ? FormMode.New : path.EndsWith("/edit", StringComparison.Ordinal) ? FormMode.Edit : FormMode.View;
+        try { _channels = await Api.GetChannelsAsync(CancellationToken.None); }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { _channels = []; }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (Id is null)
+        {
+            _model = new RecipientModel { IsNew = true, Channel = _channels.FirstOrDefault(), EventTypes = [AlertEventType.WorkerLost, AlertEventType.QueueOverLimit] };
+            return;
+        }
+        var r = await Loaded<AlertRecipientResponse>.FromAsync(() => Api.GetRecipientAsync(Id.Value, CancellationToken.None));
+        (_current, _notFound, _error) = (r.Value, r.NotFound, r.Error);
+        _model = _current is null ? null : RecipientModel.From(_current);
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        try
+        {
+            var saved = await Splash.RunAsync(L["Common.Saving"], (_, ct) => _mode == FormMode.New
+                ? Api.CreateRecipientAsync(_model!.ToRequest(), _idempotencyKey, ct)
+                : Api.UpdateRecipientAsync(Id!.Value, _model!.ToRequest(), ct), canCancel: false);
+            Toasts.Success(L["Recipient.Saved", saved.Name]);
+            Nav.NavigateTo($"alerts/recipients/{saved.RecipientId}");
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.IsConflict ? L["Common.Conflict"] : ex.Message);
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+            return false;
+        }
+    }
+
+    private async Task TestAsync()
+    {
+        _testing = true;
+        try
+        {
+            var result = await Api.TestRecipientAsync(Id!.Value, Guid.NewGuid().ToString("N"), CancellationToken.None);
+            if (result.Status == AlertSendStatus.Sent) Toasts.Success(L["Recipient.TestSent", _current?.Name ?? ""]);
+            else Toasts.Error(L["Recipient.TestFailed", Fmt.SendStatus(result.Status), result.Error ?? ""]);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+        }
+        finally
+        {
+            _testing = false;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo(_mode == FormMode.Edit ? $"alerts/recipients/{Id}" : "alerts/recipients");
+}

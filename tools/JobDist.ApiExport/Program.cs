@@ -29,7 +29,10 @@ var serverAssembly = typeof(JobDist.Server.Controllers.JobsController).Assembly;
 var endpoints = new List<Endpoint>();
 foreach (var controller in serverAssembly.GetTypes().Where(t => typeof(ControllerBase).IsAssignableFrom(t) && !t.IsAbstract).OrderBy(t => t.Name))
 {
-    var baseRoute = controller.GetCustomAttribute<RouteAttribute>()?.Template ?? string.Empty;
+    // Versioned route (api/v{version:apiVersion}/...) shown as api/v1/...; the unversioned api/... alias is the same endpoint.
+    var routes = controller.GetCustomAttributes<RouteAttribute>().Select(r => r.Template).ToList();
+    var baseRoute = (routes.FirstOrDefault(r => r.Contains("{version:apiVersion}", StringComparison.Ordinal)) ?? routes.FirstOrDefault() ?? string.Empty)
+        .Replace("v{version:apiVersion}", "v1", StringComparison.Ordinal);
     var classAuth = Auth(controller);
     foreach (var method in controller.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
     {
@@ -69,7 +72,8 @@ var json = new JsonObject
 {
     ["name"] = "JobDist",
     ["description"] = "Distributed job scheduler (.NET 10): REST API + MCP server over the same business logic.",
-    ["authentication"] = "Header X-Api-Key (roles: Admin, Submitter, Viewer, Worker, AiAgent). Worker calls also need X-Worker-Token from registration.",
+    ["authentication"] = "Header X-Api-Key (roles: Admin, Submitter, Viewer, Worker, AiAgent) or Authorization: Bearer <AuthServer token> with jobdist.* permissions. Worker calls also need X-Worker-Token from registration.",
+    ["versioning"] = "URL segment api/v1/...; the unversioned api/... alias equals v1. Header api-version or query ?api-version also accepted.",
     ["endpoints"] = JsonSerializer.SerializeToNode(endpoints),
     ["mcpTools"] = new JsonArray(tools.Select(t => (JsonNode)new JsonObject
     {
@@ -92,10 +96,13 @@ md.AppendLine("JobDist is a distributed job scheduler. The same business logic i
 md.AppendLine();
 md.AppendLine("## Authentication");
 md.AppendLine();
-md.AppendLine("- Every call: header `X-Api-Key: <key>`. Keys map to roles **Admin, Submitter, Viewer, Worker, AiAgent** (only SHA-256 hashes are stored server-side).");
+md.AppendLine("- Machines (workers, SDK, MCP, scripts): header `X-Api-Key: <key>`. Keys map to roles **Admin, Submitter, Viewer, Worker, AiAgent** (only SHA-256 hashes are stored server-side).");
+md.AppendLine("- People (web console): `Authorization: Bearer <access token>` from AuthServer (Application `jobdist`); access needs the `jobdist.*` permission shown in the Auth column, or the AuthServer admin role.");
+md.AppendLine("- Auth column \"permission `p` / API key S\": a Bearer token passes with permission `p`, an API key passes with a role of set S (Read = Viewer/Submitter/Admin, Submit = Submitter/Admin, Admin, WorkerOrAdmin, ConsoleRead = Admin in Production else Viewer/Submitter/Admin, ConsoleWrite = Admin, None = no API key).");
+md.AppendLine("- Versioning: routes are `api/v1/...`; the unversioned `api/...` alias is the same v1 endpoint (header `api-version` or `?api-version=1.0` also accepted).");
+md.AppendLine("- POST endpoints marked idempotent accept `Idempotency-Key` (1-100 chars): a retry with the same body replays the first response (header `Idempotent-Replayed: true`), a different body gets 422.");
 md.AppendLine("- Worker calls (`/api/workers/{workerId}/...`): also `X-Worker-Token: <token>` returned once by `POST /api/workers/register`.");
-md.AppendLine("- Enums are serialized as strings (e.g. `\"Pending\"`). Times are ISO-8601 UTC. Errors are RFC 7807 problem details.");
-md.AppendLine("- Policies: Read = Viewer/Submitter/Admin, Submit = Submitter/Admin, Admin = Admin, Worker = Worker, AiAgent = AiAgent/Admin.");
+md.AppendLine("- Enums are serialized as strings (e.g. `\"Pending\"`). Times are ISO-8601 UTC. Errors are RFC 7807 problem details; 429 with `error: queue_full` and `Retry-After` when a queue threshold is exceeded.");
 md.AppendLine();
 md.AppendLine("## REST endpoints");
 md.AppendLine();
@@ -159,6 +166,10 @@ static string? Auth(MemberInfo member)
         return "anonymous";
     }
     var a = member.GetCustomAttributes<AuthorizeAttribute>().FirstOrDefault();
+    if (a is JobDist.Server.Security.JobDistAuthorizeAttribute j)
+    {
+        return $"permission `{j.Permission.Replace("|", " or ", StringComparison.Ordinal)}` / API key {j.RoleSet}";
+    }
     return a is null ? null : a.Policy is not null ? $"policy:{a.Policy}" : a.Roles is not null ? $"roles:{a.Roles}" : "authenticated";
 }
 

@@ -1,0 +1,151 @@
+@page "/jobs"
+@attribute [Authorize]
+@implements IDisposable
+@* S02 Job list: filter by status, job type and worker; newest first; server paging (up to 1,000 rows per search). *@
+<PageTitle>@L["Menu.Jobs"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.JobView">
+    <ListTemplate TItem="JobRow" KeyFieldName="JobId"
+                  Title="@L["Menu.Jobs"]" Description="@L["Job.List.Description"]" Breadcrumbs="_breadcrumbs"
+                  Permissions="AppPermissions.Jobs"
+                  Items="_items" Loading="_loading" ErrorMessage="@_error" OnRetry="LoadAsync"
+                  CriteriaActiveCount="ActiveCount" OnSearch="LoadAsync" OnClear="ClearAsync"
+                  NewText="@L["Menu.SubmitJob"]" OnNew="@(() => Nav.NavigateTo("jobs/new"))"
+                  ImportText="@L["Menu.ImportJobs"]" OnImport="@(() => Nav.NavigateTo("jobs/import"))"
+                  OnView="@(r => Nav.NavigateTo($"jobs/{r.JobId}"))"
+                  OnEdit="@(r => Nav.NavigateTo($"jobs/{r.JobId}/edit"))" CanEdit="@(r => !r.IsFinal)"
+                  RowActionsWidth="200px"
+                  ExportTitle="@L["Menu.Jobs"]" ExportSubtitle="@Describe()">
+        <ExtraRowActions Context="row">
+            @if (!row.IsFinal && row.Status != JobStatus.CancelRequested)
+            {
+                <AppButton Icon="x-circle" IconOnly="true" Size="ButtonSize.Small" Title="@L["Job.Cancel"]" Permission="@AppPermissions.JobCancel"
+                           OnClick="@(() => Nav.NavigateTo($"jobs/{row.JobId}/cancel"))" />
+            }
+        </ExtraRowActions>
+        <Criteria>
+            <FieldGrid Columns="4">
+                <Field Label="@L["Job.Status"]" InputId="c-status">
+                    <DxComboBox InputId="c-status" Data="StatusOptions" @bind-Value="_status" ValueFieldName="@nameof(ListOption<JobStatus?>.Value)" TextFieldName="@nameof(ListOption<JobStatus?>.Text)"
+                                NullText="@L["Common.All"]" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["Job.JobType"]" InputId="c-type">
+                    <DxComboBox InputId="c-type" Data="_jobTypes" @bind-Value="_jobType" AllowUserInput="true" NullText="@L["Common.All"]"
+                                SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["Job.Worker"]" InputId="c-worker">
+                    <DxComboBox InputId="c-worker" Data="_workers" @bind-Value="_workerId" ValueFieldName="@nameof(ListOption<Guid?>.Value)" TextFieldName="@nameof(ListOption<Guid?>.Text)"
+                                NullText="@L["Common.All"]" SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["Job.List.MaxRows"]" InputId="c-take">
+                    <DxComboBox InputId="c-take" Data="TakeOptions" @bind-Value="_take" />
+                </Field>
+            </FieldGrid>
+        </Criteria>
+        <Columns>
+            <JobGridColumns />
+        </Columns>
+    </ListTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private StatusService Status { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    [SupplyParameterFromQuery(Name = "status")] public string? StatusQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "jobType")] public string? JobTypeQuery { get; set; }
+
+    private static readonly IReadOnlyList<ListOption<JobStatus?>> StatusOptions = Enum.GetValues<JobStatus>().Select(s => new ListOption<JobStatus?>(s, Fmt.Status(s))).ToList();
+    private static readonly int[] TakeOptions = [100, 500, 1000];
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Jobs"))];
+    private readonly CancellationTokenSource _cts = new();
+    private List<string> _jobTypes = [];
+    private List<ListOption<Guid?>> _workers = [];
+    private Dictionary<Guid, string> _workerNames = [];
+    private JobStatus? _status;
+    private string? _jobType;
+    private Guid? _workerId;
+    private int _take = 100;
+    private IReadOnlyList<JobRow>? _items;
+    private bool _loading;
+    private string? _error;
+
+    private int ActiveCount => (_status is null ? 0 : 1) + (string.IsNullOrWhiteSpace(_jobType) ? 0 : 1) + (_workerId is null ? 0 : 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Enum.TryParse<JobStatus>(StatusQuery, out var s)) _status = s;
+        _jobType = string.IsNullOrWhiteSpace(JobTypeQuery) ? null : JobTypeQuery;
+        await LoadPickersAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadPickersAsync()
+    {
+        try
+        {
+            var types = Api.GetJobTypesAsync(_cts.Token);
+            var workers = Api.ListWorkersAsync(true, _cts.Token);
+            _jobTypes = (await types).Select(t => t.JobType).Order(StringComparer.Ordinal).ToList();
+            var list = await workers;
+            _workerNames = list.ToDictionary(w => w.WorkerId, w => w.Name);
+            _workers = list.OrderBy(w => w.Name, StringComparer.CurrentCulture).Select(w => new ListOption<Guid?>(w.WorkerId, $"{w.Name} ({Fmt.Status(w.Status)})")).ToList();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
+        {
+            // Pickers are optional (e.g. no worker.view permission): the user can still type a job type.
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var page = await Splash.RunAsync(L["Job.List.Loading"], (_, ct) => Api.ListJobsAsync(_status, _jobType?.Trim(), _workerId, 0, _take, ct), cancellationToken: _cts.Token);
+            _items = page.Items.Select(j => new JobRow(j, j.AssignedWorkerId is { } w ? _workerNames.GetValueOrDefault(w) : null)).ToList();
+            Status.Set(L["Job.List.Found", page.Items.Count, page.Total]);
+        }
+        catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task ClearAsync()
+    {
+        (_status, _jobType, _workerId) = (null, null, null);
+        return LoadAsync();
+    }
+
+    private string Describe()
+    {
+        var parts = new List<string>();
+        if (_status is { } s) parts.Add($"{L["Job.Status"]}: {Fmt.Status(s)}");
+        if (!string.IsNullOrWhiteSpace(_jobType)) parts.Add($"{L["Job.JobType"]}: {_jobType}");
+        if (_workerId is { } w) parts.Add($"{L["Job.Worker"]}: {_workerNames.GetValueOrDefault(w, w.ToString())}");
+        return parts.Count == 0 ? L["Common.AllData"] : string.Join(" · ", parts);
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

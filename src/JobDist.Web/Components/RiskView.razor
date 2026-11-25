@@ -1,0 +1,39 @@
+@* Risk assessment: score, level, factors and recommendation. *@
+@if (Risk is { } r)
+{
+    <div class="page-stack">
+        <div class="toolbar-inline">
+            <Badge Text="@L["Risk.LevelScore", L[$"Risk.Level.{r.Level}"].Value, r.Score.ToString("N0")]" Level="@Fmt.RiskLevel(r.Level)" Icon="shield" />
+            <span>@r.Recommendation</span>
+        </div>
+        @if (r.Factors.Count > 0)
+        {
+            <table class="simple-table">
+                <thead><tr><th>@L["Risk.Factor"]</th><th class="num">@L["Risk.Points"]</th><th>@L["Risk.Explanation"]</th></tr></thead>
+                <tbody>
+                    @foreach (var f in r.Factors)
+                    {
+                        <tr><td>@f.Factor</td><td class="num">@f.Points.ToString("N1")</td><td>@f.Explanation</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="muted">@L["Risk.NoFactors"]</p>
+        }
+    </div>
+}
+else if (Error is not null)
+{
+    <Alert Level="AlertLevel.Warning">@Error</Alert>
+}
+else
+{
+    <LoadingState />
+}
+
+@code {
+    [Parameter] public RiskAssessment? Risk { get; set; }
+    [Parameter] public string? Error { get; set; }
+}

@@ -1,0 +1,74 @@
+@page "/workers/{WorkerId:guid}/unregister"
+@attribute [Authorize]
+@* S10 Unregister a worker (confirmation form): held jobs are re-distributed and an Unregister alert is sent through MessageHub. *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.WorkerUnregister">
+    <LoadState Ready="@(_worker is not null)" NotFound="_notFound" NotFoundTitle="@L["Worker.NotFound"]" NotFoundHint="@L["Worker.NotFoundHint"]" Error="@_error" OnRetry="LoadAsync">
+        <FormTemplate Title="@Title" Description="@L["Worker.UnregisterPage.Description"]" Breadcrumbs="Crumbs" Mode="@(CanUnregister ? FormMode.Edit : FormMode.View)" Model="_model"
+                      SaveText="@L["Worker.UnregisterPage.Confirm"]" SavePermission="@AppPermissions.WorkerUnregister" OnSave="SaveAsync" OnCancel="Back">
+            <Notice>
+                @if (CanUnregister)
+                {
+                    <Alert Level="AlertLevel.Warning" Title="@L["Worker.UnregisterPage.WhatHappens"]">@L["Worker.UnregisterPage.WhatHappensHint", _worker!.ActiveJobs]</Alert>
+                }
+                else
+                {
+                    <Alert Level="AlertLevel.Warning" Title="@L["Worker.UnregisterPage.NotAllowed"]">@L["Worker.UnregisterPage.NotAllowedHint", Fmt.Status(_worker!.Status)]</Alert>
+                }
+            </Notice>
+            <ChildContent>
+                <FormSection Title="@L["Worker.Detail.Section.Status"]"><WorkerFacts Worker="_worker!" /></FormSection>
+            </ChildContent>
+        </FormTemplate>
+    </LoadState>
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid WorkerId { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private readonly ConfirmModel _model = new();
+    private WorkerResponse? _worker;
+    private bool _notFound;
+    private string? _error;
+
+    private bool CanUnregister => _worker is not null && _worker.Status != WorkerStatus.Unregistered;
+    private string Title => L["Worker.UnregisterPage.Title", _worker?.Name ?? Fmt.Short(WorkerId)];
+    private IReadOnlyList<Breadcrumb> Crumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Workers"], "workers"), new(_worker?.Name ?? Fmt.Short(WorkerId), $"workers/{WorkerId}"), new(L["Worker.Unregister"])];
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Loaded<WorkerResponse>.FromAsync(() => Api.GetWorkerAsync(WorkerId, CancellationToken.None));
+        (_worker, _notFound, _error) = (r.Value, r.NotFound, r.Error);
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        try
+        {
+            await Splash.RunAsync(L["Worker.UnregisterPage.Saving"], (_, ct) => Api.UnregisterWorkerAsync(WorkerId, ct), canCancel: false);
+            Toasts.Success(L["Worker.UnregisterPage.Done", _worker!.Name]);
+            Back();
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+            return false;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo("workers");
+}

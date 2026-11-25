@@ -42,6 +42,9 @@ public sealed class JobDistAiTools(
     JobService jobs,
     WorkerRegistryService workers,
     ClusterService cluster,
+    QueueThresholdService queues,
+    AlertRecipientService alerts,
+    JobReportService reports,
     IOptions<McpToolOptions> options)
 {
     // ----------------------------------------------------------------------------------------------- risk calculation
@@ -124,6 +127,40 @@ public sealed class JobDistAiTools(
     [Description("Get what the ML model learned about worker performance per job type: samples, success/failure counts, mean and standard deviation of duration.")]
     public IReadOnlyList<PerformanceStatDTO> GetWorkerPerformance([Description("Optional job type filter.")] string? jobType = null) =>
         cluster.GetPerformance(jobType);
+
+    // ----------------------------------------------------------------------------------------------- console (read-only)
+
+    /// <summary>Current queue usage against every configured threshold.</summary>
+    [Description("Get pending jobs compared with the configured queue thresholds: pending, limit, usage percent and level (Normal, NearLimit, OverLimit). Over the limit, new jobs of that type are rejected.")]
+    public Task<IReadOnlyList<QueueStatusResponse>> GetQueueStatus(CancellationToken ct = default) => queues.GetStatusAsync(ct);
+
+    /// <summary>Recent alert deliveries.</summary>
+    [Description("List alerts sent to administrators through MessageHub in the last hours: event type, severity, title, recipient (masked address) and delivery status.")]
+    public async Task<IReadOnlyList<AlertLogResponse>> ListAlertLogs(
+        [Description("Look back this many hours (1-720).")] int hours = 24,
+        [Description("Optional event type: AnomalyDetected, WorkerRegistered, WorkerUnregistered, WorkerLost, LeaderChanged, QueueNearLimit, QueueOverLimit, Test.")] AlertEventType? eventType = null,
+        CancellationToken ct = default)
+    {
+        var to = DateTimeOffset.UtcNow;
+        var page = await alerts.QueryLogsAsync(to.AddHours(-Math.Clamp(hours, 1, 720)), to, eventType, null, null, 0, 200, ct).ConfigureAwait(false);
+        return page.Items;
+    }
+
+    /// <summary>Job statistics report.</summary>
+    [Description("Job statistics per day (Asia/Bangkok), job type or worker: submitted, succeeded, failed, cancelled, success rate, average attempts, average and P95 duration, average queue wait, throughput per hour. Dates are yyyy-MM-dd; range at most the retention period (30 days).")]
+    public Task<JobStatisticsReportResponse> GetJobStatistics(
+        [Description("First day, yyyy-MM-dd.")] string fromDate,
+        [Description("Last day, yyyy-MM-dd.")] string toDate,
+        [Description("Optional job type filter.")] string? jobType = null,
+        [Description("Grouping: day, jobType, worker or a comma-separated combination.")] string groupBy = "day",
+        CancellationToken ct = default)
+    {
+        if (!DateOnly.TryParseExact(fromDate, "yyyy-MM-dd", out var from) || !DateOnly.TryParseExact(toDate, "yyyy-MM-dd", out var to))
+        {
+            throw new ValidationException("Dates must be yyyy-MM-dd.");
+        }
+        return reports.GetAsync(from, to, jobType, null, groupBy, "Asia/Bangkok", ct);
+    }
 
     // ----------------------------------------------------------------------------------------------- side effects (opt-in)
 

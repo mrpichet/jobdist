@@ -1,0 +1,74 @@
+@page "/workers/{WorkerId:guid}/drain"
+@attribute [Authorize]
+@* S09 Drain a worker (confirmation form): no new jobs, running jobs finish. *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.WorkerDrain">
+    <LoadState Ready="@(_worker is not null)" NotFound="_notFound" NotFoundTitle="@L["Worker.NotFound"]" NotFoundHint="@L["Worker.NotFoundHint"]" Error="@_error" OnRetry="LoadAsync">
+        <FormTemplate Title="@Title" Description="@L["Worker.DrainPage.Description"]" Breadcrumbs="Crumbs" Mode="@(CanDrain ? FormMode.Edit : FormMode.View)" Model="_model"
+                      SaveText="@L["Worker.DrainPage.Confirm"]" SavePermission="@AppPermissions.WorkerDrain" OnSave="SaveAsync" OnCancel="Back">
+            <Notice>
+                @if (CanDrain)
+                {
+                    <Alert Level="AlertLevel.Info" Title="@L["Worker.DrainPage.WhatHappens"]">@L["Worker.DrainPage.WhatHappensHint", _worker!.ActiveJobs]</Alert>
+                }
+                else
+                {
+                    <Alert Level="AlertLevel.Warning" Title="@L["Worker.DrainPage.NotAllowed"]">@L["Worker.DrainPage.NotAllowedHint", Fmt.Status(_worker!.Status)]</Alert>
+                }
+            </Notice>
+            <ChildContent>
+                <FormSection Title="@L["Worker.Detail.Section.Status"]"><WorkerFacts Worker="_worker!" /></FormSection>
+            </ChildContent>
+        </FormTemplate>
+    </LoadState>
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid WorkerId { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private readonly ConfirmModel _model = new();
+    private WorkerResponse? _worker;
+    private bool _notFound;
+    private string? _error;
+
+    private bool CanDrain => _worker?.Status == WorkerStatus.Online;
+    private string Title => L["Worker.DrainPage.Title", _worker?.Name ?? Fmt.Short(WorkerId)];
+    private IReadOnlyList<Breadcrumb> Crumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Workers"], "workers"), new(_worker?.Name ?? Fmt.Short(WorkerId), $"workers/{WorkerId}"), new(L["Worker.Drain"])];
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Loaded<WorkerResponse>.FromAsync(() => Api.GetWorkerAsync(WorkerId, CancellationToken.None));
+        (_worker, _notFound, _error) = (r.Value, r.NotFound, r.Error);
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        try
+        {
+            await Splash.RunAsync(L["Worker.DrainPage.Saving"], (_, ct) => Api.DrainWorkerAsync(WorkerId, ct), canCancel: false);
+            Toasts.Success(L["Worker.DrainPage.Done", _worker!.Name]);
+            Back();
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+            return false;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo($"workers/{WorkerId}");
+}

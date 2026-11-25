@@ -1,0 +1,19 @@
+@* Read-only key facts of a worker (S08-S10). *@
+<dl class="kv">
+    <dt>@L["Worker.Name"]</dt><dd>@Worker.Name</dd>
+    <dt>@L["Worker.Id"]</dt><dd class="mono">@Worker.WorkerId</dd>
+    <dt>@L["Worker.Status"]</dt><dd><WorkerStatusBadge Status="Worker.Status" /></dd>
+    <dt>@L["Worker.Load"]</dt><dd>@Worker.ActiveJobs / @Worker.MaxTotalConcurrency</dd>
+    <dt>@L["Worker.LastHeartbeat"]</dt><dd>@Fmt.Time(Worker.LastHeartbeatUtc)</dd>
+    @if (Full)
+    {
+        <dt>@L["Worker.Cpu"]</dt><dd>@Fmt.Percent(Worker.CpuUsagePercent)</dd>
+        <dt>@L["Worker.Memory"]</dt><dd>@Fmt.Percent(Worker.MemoryUsagePercent)</dd>
+        <dt>@L["Worker.OfflineCount"]</dt><dd>@Worker.OfflineCount</dd>
+    }
+</dl>
+
+@code {
+    [Parameter, EditorRequired] public WorkerResponse Worker { get; set; } = default!;
+    [Parameter] public bool Full { get; set; }
+}

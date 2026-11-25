@@ -25,6 +25,8 @@ public sealed class JobDistExceptionHandler(IProblemDetailsService problemDetail
             ValidationException => (StatusCodes.Status400BadRequest, "Validation failed"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
             ForbiddenException => (StatusCodes.Status403Forbidden, "Forbidden"),
+            QueueFullException => (StatusCodes.Status429TooManyRequests, "Queue full"),
+            IdempotencyMismatchException => (StatusCodes.Status422UnprocessableEntity, "Idempotency key reused"),
             BadHttpRequestException b => (b.StatusCode, "Bad request"),
             OperationCanceledException when httpContext.RequestAborted.IsCancellationRequested => (499, "Client closed request"),
             _ => (StatusCodes.Status500InternalServerError, "Unexpected error")
@@ -38,17 +40,27 @@ public sealed class JobDistExceptionHandler(IProblemDetailsService problemDetail
 
         // Step 3: problem details; business messages are safe to show, everything else is generic.
         httpContext.Response.StatusCode = status;
+        var details = new ProblemDetails
+        {
+            Status = status,
+            Title = title,
+            Detail = exception is JobDistException ? exception.Message : null,
+            Instance = httpContext.Request.Path
+        };
+        if (exception is QueueFullException q)
+        {
+            // Q17: machine-readable reason + when to retry.
+            httpContext.Response.Headers.RetryAfter = "60";
+            details.Extensions["error"] = "queue_full";
+            details.Extensions["jobType"] = q.JobType;
+            details.Extensions["pending"] = q.Pending;
+            details.Extensions["maxPending"] = q.MaxPending;
+        }
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             Exception = exception,
-            ProblemDetails = new ProblemDetails
-            {
-                Status = status,
-                Title = title,
-                Detail = exception is JobDistException ? exception.Message : null,
-                Instance = httpContext.Request.Path
-            }
+            ProblemDetails = details
         }).ConfigureAwait(false);
     }
 }
@@ -96,8 +108,12 @@ public sealed class WorkerTokenFilter(WorkerRegistryService registry, WorkerRepo
     /// <inheritdoc />
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        // Step 1: admins may act on any worker (e.g. unregister a dead node).
-        if (context.HttpContext.User.IsInRole(Roles.Admin) && !context.HttpContext.Request.Headers.ContainsKey(HeaderName))
+        // Step 1: admins (API key role Admin, or a console user who already passed the endpoint's permission policy)
+        // may act on any worker without its token, e.g. unregister a dead node.
+        var user = context.HttpContext.User;
+        var operatorCall = user.IsInRole(Roles.Admin)
+            || user.Identities.Any(i => i.IsAuthenticated && i.AuthenticationType == Common.AspNetCore.Authentication.AuthServerAuthenticationHandler.SchemeName);
+        if (operatorCall && !context.HttpContext.Request.Headers.ContainsKey(HeaderName))
         {
             await next().ConfigureAwait(false);
             return;

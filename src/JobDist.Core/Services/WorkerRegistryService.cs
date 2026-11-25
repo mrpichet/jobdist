@@ -20,12 +20,14 @@ public sealed class WorkerRegistryService(
     JobExecutionService execution,
     PqcSignatureService signer,
     WorkerSignalService signals,
+    AlertDispatchService alerts,
     IOptions<JobDistOptions> options,
     TimeProvider time,
     ILogger<WorkerRegistryService> logger)
 {
     private static readonly TimeSpan TokenCacheTtl = TimeSpan.FromSeconds(30);
     private readonly ConcurrentDictionary<Guid, (byte[] Hash, DateTimeOffset Expires)> _tokenCache = new();
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _lastHeartbeatSent = new();
 
     /// <summary>
     /// Registers a worker (or re-registers an existing name, keeping its id and statistics).
@@ -43,6 +45,7 @@ public sealed class WorkerRegistryService(
 
         // Step 1: validate capabilities (no duplicates, valid names) and public keys (must parse).
         Validate(request);
+        CheckSdkVersion(request.Version, o.MinWorkerSdkVersion);
 
         // Step 2: re-use the id of a worker with the same name (its learned performance history stays valid).
         var existing = await workers.GetByNameAsync(request.Name, ct).ConfigureAwait(false);
@@ -90,8 +93,15 @@ public sealed class WorkerRegistryService(
         await workers.UpsertAsync(worker, ct).ConfigureAwait(false);
         _tokenCache[workerId] = (hash, now + TokenCacheTtl);
 
+        _lastHeartbeatSent.TryRemove(workerId, out _);
         logger.LogInformation("Worker {Name} ({WorkerId}) registered with {Count} job types, PQC={Pqc}.",
             worker.Name, workerId, worker.Capabilities.Count, worker.MlKemPublicKey is not null);
+
+        // Step 5: alert (each registration is its own event; a re-registration also sends WorkerRegistered).
+        await alerts.TryPublishAsync(new AlertEventDTO($"WorkerRegistered:{workerId}:{now.UtcTicks}", AlertEventType.WorkerRegistered, AlertSeverity.Info,
+            $"worker:{worker.Name}", $"[JobDist] Worker registered: {worker.Name}",
+            $"Worker {worker.Name} ({workerId}) {(existing is null ? "registered" : "registered again")} at {now:yyyy-MM-dd HH:mm:ss} UTC with " +
+            $"{worker.Capabilities.Count} job type(s): {string.Join(", ", worker.Capabilities.Select(c => c.JobType).Take(20))}. Version {worker.Version ?? "-"}.", now), ct).ConfigureAwait(false);
         return new RegisterWorkerResponse(workerId, token, o.HeartbeatIntervalSeconds, o.OfflineAfterSeconds, signer.PublicKeys);
     }
 
@@ -104,6 +114,7 @@ public sealed class WorkerRegistryService(
     {
         // Step 1: mark unregistered (stops new assignments) and invalidate the token cache.
         var worker = await workers.GetAsync(workerId, ct).ConfigureAwait(false) ?? throw new NotFoundException($"Worker {workerId} not found.");
+        var wasRegistered = worker.Status != WorkerStatus.Unregistered;
         await workers.SetStatusAsync(workerId, WorkerStatus.Unregistered, false, null, ct).ConfigureAwait(false);
         _tokenCache.TryRemove(workerId, out _);
 
@@ -114,6 +125,15 @@ public sealed class WorkerRegistryService(
             await execution.ReleaseAsync(job, AttemptOutcome.Released, "Worker unregistered", ct).ConfigureAwait(false);
         }
         logger.LogInformation("Worker {Name} ({WorkerId}) unregistered; {Count} jobs released.", worker.Name, workerId, held.Count);
+
+        // Step 3: alert once (a repeated DELETE is idempotent and silent).
+        if (wasRegistered)
+        {
+            var now = time.GetUtcNow();
+            await alerts.TryPublishAsync(new AlertEventDTO($"WorkerUnregistered:{workerId}:{now.UtcTicks}", AlertEventType.WorkerUnregistered, AlertSeverity.Info,
+                $"worker:{worker.Name}", $"[JobDist] Worker unregistered: {worker.Name}",
+                $"Worker {worker.Name} ({workerId}) unregistered at {now:yyyy-MM-dd HH:mm:ss} UTC; {held.Count} job(s) were re-distributed.", now), ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -173,6 +193,22 @@ public sealed class WorkerRegistryService(
     {
         var now = time.GetUtcNow();
 
+        // Step 0: a heartbeat that was sent before one we already processed arrived out of order: report state, store nothing.
+        if (request.SentUtc is { } sent)
+        {
+            var newer = true;
+            _lastHeartbeatSent.AddOrUpdate(workerId, sent, (_, last) => { newer = sent > last; return newer ? sent : last; });
+            if (!newer)
+            {
+                var current = await workers.GetAsync(workerId, ct).ConfigureAwait(false);
+                if (current is null || current.Status == WorkerStatus.Unregistered)
+                {
+                    throw new NotFoundException("Worker is not registered.");
+                }
+                return new HeartbeatResponse(current.Status, []);
+            }
+        }
+
         // Step 1: record (also brings an Offline worker back Online - it reconnected).
         var status = await workers.RecordHeartbeatAsync(workerId, now, Math.Clamp(request.CpuUsagePercent, 0, 100),
             Math.Clamp(request.MemoryUsagePercent, 0, 100), ct).ConfigureAwait(false)
@@ -208,6 +244,27 @@ public sealed class WorkerRegistryService(
     }
 
     /// <summary>Business validation of a registration.</summary>
+    /// <summary>Rejects worker SDKs older than <see cref="JobDistOptions.MinWorkerSdkVersion"/> (numeric prefix compare).</summary>
+    /// <exception cref="ValidationException">SDK too old or version missing while a minimum is configured.</exception>
+    internal static void CheckSdkVersion(string? version, string? minimum)
+    {
+        if (string.IsNullOrWhiteSpace(minimum))
+        {
+            return;
+        }
+        static Version? Parse(string? v)
+        {
+            var core = v?.Split('-', '+')[0].Trim();
+            return System.Version.TryParse(core, out var parsed) ? parsed : null;
+        }
+        var min = Parse(minimum) ?? throw new InvalidOperationException("JobDist:MinWorkerSdkVersion is not a valid version.");
+        var actual = Parse(version);
+        if (actual is null || actual < min)
+        {
+            throw new ValidationException($"Worker SDK version {version ?? "(none)"} is not supported; upgrade to {minimum} or later.");
+        }
+    }
+
     private static void Validate(RegisterWorkerRequest r)
     {
         if (string.IsNullOrWhiteSpace(r.Name) || r.Name.Length > 200)

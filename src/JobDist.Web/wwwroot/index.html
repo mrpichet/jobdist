@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light" data-accent="blue">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>JobDist</title>
+    <base href="/" />
+    <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
+    <!-- DevExpress Fluent theme: core + โหมด (light/dark สลับโดย theme-init.js / ThemeService) + accent พื้นฐาน -->
+    <link rel="stylesheet" href="_content/DevExpress.Blazor.Themes.Fluent/core.min.css" />
+    <link id="dx-theme-mode" rel="stylesheet" href="_content/DevExpress.Blazor.Themes.Fluent/modes/light.min.css"
+          data-light="_content/DevExpress.Blazor.Themes.Fluent/modes/light.min.css"
+          data-dark="_content/DevExpress.Blazor.Themes.Fluent/modes/dark.min.css" />
+    <link rel="stylesheet" href="_content/DevExpress.Blazor.Themes.Fluent/accents/blue.min.css" />
+    <!-- ตั้ง Theme ก่อน render เพื่อป้องกันหน้าจอกะพริบ (ต้องอยู่หลัง #dx-theme-mode) -->
+    <script src="_content/WebCommon.UI/js/theme-init.js"></script>
+    <!-- Design tokens ของ WebCommon (ต้องโหลดหลัง DevExpress เพื่อให้ Theme สีมีผลกับ component) -->
+    <link rel="stylesheet" href="_content/WebCommon.UI/css/tokens.css" />
+    <link rel="stylesheet" href="_content/WebCommon.UI/css/themes.css" />
+    <link rel="stylesheet" href="_content/WebCommon.UI/css/base.css" />
+    <link rel="stylesheet" href="_content/WebCommon.UI/css/devexpress.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="JobDist.Web.styles.css" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="boot-screen" role="status" aria-live="polite">
+            <div class="boot-screen__inner">
+                <span class="boot-screen__title">JobDist</span>
+                <progress aria-label="กำลังโหลดแอปพลิเคชัน" data-en-aria-label="Loading the application"></progress>
+                <span data-en="Loading the application...">กำลังโหลดแอปพลิเคชัน...</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" role="alert">
+        <span data-en="Something went wrong.">เกิดข้อผิดพลาดที่ไม่คาดคิด</span>
+        <a href="." class="reload" data-en="Reload">โหลดหน้าใหม่</a>
+        <button type="button" class="dismiss" aria-label="ปิดข้อความ" data-en-aria-label="Dismiss">✕</button>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

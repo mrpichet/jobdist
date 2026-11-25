@@ -1,0 +1,12 @@
+@page "/error/{Code}"
+@attribute [Authorize]
+<PageTitle>@L["Error.PageTitle", SafeCode]</PageTitle>
+
+<ErrorView Code="@SafeCode" />
+
+@code {
+    [Parameter] public string Code { get; set; } = "500";
+
+    // Only known codes (never reflect the URL value).
+    private string SafeCode => Code is "401" or "403" or "404" or "408" or "500" or "offline" ? Code : "500";
+}
