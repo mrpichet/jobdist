@@ -1,0 +1,35 @@
+@* Loading / not found / error states shared by detail and action pages. *@
+@if (NotFound)
+{
+    <ErrorView Code="404" Title="@NotFoundTitle" Message="@NotFoundHint" />
+}
+else if (Error is not null)
+{
+    <Alert Level="AlertLevel.Danger" Title="@L["Common.LoadFailed"]">
+        <ChildContent>@Error</ChildContent>
+        <Actions>
+            @if (OnRetry.HasDelegate)
+            {
+                <AppButton Text="@T["Common.Retry"]" Icon="refresh" Size="ButtonSize.Small" OnClick="OnRetry" />
+            }
+        </Actions>
+    </Alert>
+}
+else if (!Ready)
+{
+    <LoadingState />
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public bool Ready { get; set; }
+    [Parameter] public bool NotFound { get; set; }
+    [Parameter] public string? NotFoundTitle { get; set; }
+    [Parameter] public string? NotFoundHint { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -71,10 +71,12 @@ public sealed record RegisterWorkerResponse(
 /// <param name="RunningJobIds">Jobs currently executing on the worker.</param>
 /// <param name="CpuUsagePercent">0-100.</param>
 /// <param name="MemoryUsagePercent">0-100.</param>
+/// <param name="SentUtc">Optional worker clock time when the heartbeat was sent; a heartbeat older than one already processed is ignored (out-of-order delivery).</param>
 public sealed record HeartbeatRequest(
     [MaxLength(4096)] IReadOnlyList<Guid>? RunningJobIds = null,
     [Range(0, 100)] double CpuUsagePercent = 0,
-    [Range(0, 100)] double MemoryUsagePercent = 0);
+    [Range(0, 100)] double MemoryUsagePercent = 0,
+    DateTimeOffset? SentUtc = null);
 
 /// <summary>Detached hybrid signature.</summary>
 /// <param name="Algorithm"><c>ML-DSA-65+ECDSA-P384</c> or <c>ECDSA-P384</c>.</param>

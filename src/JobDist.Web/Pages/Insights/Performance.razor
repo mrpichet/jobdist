@@ -1,0 +1,161 @@
+@page "/insights/performance"
+@attribute [Authorize]
+@implements IDisposable
+@* S11 Learned performance per worker and job type, and recommended workers for one job type. *@
+<PageTitle>@L["Menu.Performance"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.InsightView">
+    <ReportTemplate Title="@L["Menu.Performance"]" Description="@L["Performance.Description"]" Breadcrumbs="_breadcrumbs"
+                    CriteriaActiveCount="@(string.IsNullOrWhiteSpace(_jobType) ? 0 : 1)" OnGenerate="GenerateAsync" OnClear="ClearAsync"
+                    Busy="_busy" HasResult="@(_rows is not null)" ErrorMessage="@_error"
+                    ReportTitle="@L["Menu.Performance"]" CriteriaSummary="@Summary" GeneratedAt="_generatedAt"
+                    ExportPermission="@AppPermissions.InsightView" ExportFormats="_formats" OnExport="ExportAsync">
+        <Criteria>
+            <FieldGrid Columns="1">
+                <Field Label="@L["Job.JobType"]" InputId="p-type" Hint="@L["Performance.JobTypeHint"]">
+                    <DxComboBox InputId="p-type" Data="_jobTypes" @bind-Value="_jobType" AllowUserInput="true" NullText="@L["Common.All"]"
+                                SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+            </FieldGrid>
+        </Criteria>
+        <Result>
+            @if (_rows is { } rows)
+            {
+                <div class="page-stack">
+                    @if (_recommendations is { } recs)
+                    {
+                        <section class="page-stack" aria-labelledby="rec-title">
+                            <h3 id="rec-title">@L["Performance.Recommended", _reportedType ?? ""]</h3>
+                            @if (recs.Count == 0)
+                            {
+                                <p class="muted">@L["Performance.NoRecommendation"]</p>
+                            }
+                            else
+                            {
+                                <table class="simple-table">
+                                    <thead><tr><th>#</th><th>@L["Job.Worker"]</th><th class="num">@L["Performance.Score"]</th><th class="num">@L["Performance.Load"]</th><th class="num">@L["Performance.Expected"]</th><th class="num">@L["Performance.SuccessProbability"]</th><th>@L["Performance.Reason"]</th></tr></thead>
+                                    <tbody>
+                                        @for (var i = 0; i < recs.Count; i++)
+                                        {
+                                            var r = recs[i];
+                                            <tr><td>@(i + 1)</td><td><a href="@($"workers/{r.WorkerId}")">@r.WorkerName</a></td><td class="num">@r.Score.ToString("N2")</td><td class="num">@Fmt.Percent(r.LoadRatio * 100)</td><td class="num">@Fmt.Duration(r.ExpectedDurationMs)</td><td class="num">@Fmt.Percent(r.SuccessProbability * 100)</td><td>@r.Reason</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </section>
+                    }
+
+                    @if (_reportedType is not null && rows.Count > 0)
+                    {
+                        <DxChart T="PerformanceRow" Data="rows" Height="280px" Attributes="@(new Dictionary<string, object> { ["role"] = "img", ["aria-label"] = L["Performance.ChartLabel"].Value })">
+                            <DxChartTitle Text="@L["Performance.Chart"]" />
+                            <DxChartBarSeries T="PerformanceRow" TArgument="string" TValue="double" Name="@L["Performance.Mean"]" ArgumentField="x => x.Worker" ValueField="x => x.MeanMs" />
+                            <DxChartLegend Visible="false" />
+                            <DxChartTooltip Enabled="true" />
+                        </DxChart>
+                    }
+
+                    <section class="page-stack" aria-labelledby="perf-title">
+                        <h3 id="perf-title">@L["Performance.Learned"]</h3>
+                        <DxGrid @ref="_grid" Data="rows" KeyFieldName="@nameof(PerformanceRow.Key)" ShowAllRows="true" AllowSort="true" ColumnResizeMode="GridColumnResizeMode.NextColumn">
+                            <Columns>
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.JobType)" Caption="@L["Job.JobType"]" GroupIndex="@(_reportedType is null ? 0 : -1)" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.Worker)" Caption="@L["Job.Worker"]" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.Samples)" Caption="@L["Performance.Samples"]" DisplayFormat="N0" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.Successes)" Caption="@L["Performance.Successes"]" DisplayFormat="N0" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.Failures)" Caption="@L["Performance.Failures"]" DisplayFormat="N0" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.SuccessRate)" Caption="@L["Performance.SuccessRate"]" DisplayFormat="0.0" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.MeanMs)" Caption="@L["Performance.MeanMs"]" DisplayFormat="N0" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.StdDevMs)" Caption="@L["Performance.StdDevMs"]" DisplayFormat="N0" />
+                                <DxGridDataColumn FieldName="@nameof(PerformanceRow.Updated)" Caption="@L["Performance.Updated"]" DisplayFormat="dd/MM/yyyy HH:mm" />
+                            </Columns>
+                        </DxGrid>
+                    </section>
+                </div>
+            }
+        </Result>
+    </ReportTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private GridExportService Exporter { get; set; } = default!;
+
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Analysis")), new(AppText.Get("Menu.Performance"))];
+    private readonly ExportFormat[] _formats = [ExportFormat.Excel, ExportFormat.Csv, ExportFormat.Pdf];
+    private readonly CancellationTokenSource _cts = new();
+    private IGrid? _grid;
+    private List<string> _jobTypes = [];
+    private string? _jobType;
+    private string? _reportedType;
+    private List<PerformanceRow>? _rows;
+    private List<WorkerRecommendation>? _recommendations;
+    private DateTimeOffset? _generatedAt;
+    private bool _busy;
+    private string? _error;
+
+    private string Summary => _reportedType is null ? L["Common.AllData"] : $"{L["Job.JobType"]}: {_reportedType}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _jobTypes = (await Api.GetJobTypesAsync(_cts.Token)).Select(t => t.JobType).Order(StringComparer.Ordinal).ToList(); }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { }
+        await GenerateAsync();
+    }
+
+    private async Task GenerateAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var type = string.IsNullOrWhiteSpace(_jobType) ? null : _jobType.Trim();
+            (_rows, _recommendations) = await Splash.RunAsync(L["Performance.Loading"], async (_, ct) =>
+            {
+                var stats = Api.GetPerformanceAsync(type, ct);
+                var workers = Api.ListWorkersAsync(true, ct);
+                var recs = type is null ? Task.FromResult<List<WorkerRecommendation>?>(null) : Api.GetRecommendationsAsync(type, 5, ct)!;
+                var names = (await workers).ToDictionary(w => w.WorkerId, w => w.Name);
+                var rows = (await stats).Select(s => new PerformanceRow(s, names.GetValueOrDefault(s.WorkerId, Fmt.Short(s.WorkerId)))).OrderBy(r => r.JobType, StringComparer.Ordinal).ThenBy(r => r.MeanMs).ToList();
+                return (rows, await recs);
+            }, cancellationToken: _cts.Token);
+            _reportedType = type;
+            _generatedAt = DateTimeOffset.Now;
+        }
+        catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task ClearAsync()
+    {
+        _jobType = null;
+        return GenerateAsync();
+    }
+
+    private async Task ExportAsync(ExportFormat format)
+    {
+        if (_grid is not null) await Exporter.ExportAsync(_grid, format, L["Menu.Performance"], Summary);
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

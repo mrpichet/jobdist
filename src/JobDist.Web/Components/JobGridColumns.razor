@@ -1,0 +1,15 @@
+@* Columns of the job grid (job list S02 and worker detail S08). *@
+<DxGridDataColumn FieldName="@nameof(JobRow.ShortId)" Caption="@L["Job.Id"]" Width="110px" FixedPosition="GridColumnFixedPosition.Left" />
+<DxGridDataColumn FieldName="@nameof(JobRow.JobType)" Caption="@L["Job.JobType"]" MinWidth="160" />
+<DxGridDataColumn FieldName="@nameof(JobRow.StatusText)" Caption="@L["Job.Status"]" Width="150px">
+    <CellDisplayTemplate>
+        <JobStatusBadge Status="@(((JobRow)context.DataItem).Status)" />
+    </CellDisplayTemplate>
+</DxGridDataColumn>
+<DxGridDataColumn FieldName="@nameof(JobRow.Priority)" Caption="@L["Job.Priority"]" Width="90px" />
+<DxGridDataColumn FieldName="@nameof(JobRow.AttemptText)" Caption="@L["Job.Attempt"]" Width="90px" />
+<DxGridDataColumn FieldName="@nameof(JobRow.Worker)" Caption="@L["Job.Worker"]" Width="150px" />
+<DxGridDataColumn FieldName="@nameof(JobRow.Created)" Caption="@L["Job.Created"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+<DxGridDataColumn FieldName="@nameof(JobRow.Completed)" Caption="@L["Job.Completed"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+<DxGridDataColumn FieldName="@nameof(JobRow.DurationText)" Caption="@L["Job.Duration"]" Width="110px" />
+<DxGridDataColumn FieldName="@nameof(JobRow.Tags)" Caption="@L["Job.Tags"]" Width="160px" Visible="false" />

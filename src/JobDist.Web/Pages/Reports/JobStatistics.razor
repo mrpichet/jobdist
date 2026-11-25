@@ -1,0 +1,187 @@
+@page "/reports/job-statistics"
+@attribute [Authorize]
+@implements IDisposable
+@* X4 Job statistics by day (Asia/Bangkok), job type and/or worker: submitted, succeeded, failed, cancelled, success rate,
+   average attempts, average and P95 run time, average queue wait, throughput. *@
+<PageTitle>@L["Menu.JobStatistics"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.ReportView">
+    <ReportTemplate Title="@L["Menu.JobStatistics"]" Description="@L["Stats.Description"]" Breadcrumbs="_breadcrumbs"
+                    CriteriaActiveCount="ActiveCount" OnGenerate="GenerateAsync" OnClear="Clear"
+                    Busy="_busy" HasResult="@(_report is not null)" ErrorMessage="@_error"
+                    ReportTitle="@L["Menu.JobStatistics"]" CriteriaSummary="@_summary" GeneratedAt="_report?.GeneratedUtc"
+                    ExportPermission="@AppPermissions.ReportView" ExportFormats="_formats" OnExport="ExportAsync">
+        <Criteria>
+            <FieldGrid Columns="1">
+                <Field Label="@L["Common.From"]" InputId="s-from" Required>
+                    <DxDateEdit InputId="s-from" @bind-Date="_from" DisplayFormat="dd/MM/yyyy" Format="dd/MM/yyyy" MaxDate="@DateTime.Today" />
+                </Field>
+                <Field Label="@L["Common.To"]" InputId="s-to" Required>
+                    <DxDateEdit InputId="s-to" @bind-Date="_to" DisplayFormat="dd/MM/yyyy" Format="dd/MM/yyyy" MaxDate="@DateTime.Today" />
+                </Field>
+                <Field Label="@L["Job.JobType"]" InputId="s-type">
+                    <DxComboBox InputId="s-type" Data="_jobTypes" @bind-Value="_jobType" AllowUserInput="true" NullText="@L["Common.All"]"
+                                SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["Job.Worker"]" InputId="s-worker">
+                    <DxComboBox InputId="s-worker" Data="_workers" @bind-Value="_workerId" ValueFieldName="@nameof(ListOption<Guid?>.Value)" TextFieldName="@nameof(ListOption<Guid?>.Text)"
+                                NullText="@L["Common.All"]" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </Field>
+                <Field Label="@L["Stats.GroupBy"]" InputId="s-group" Hint="@L["Stats.GroupByHint"]">
+                    <DxTagBox InputId="s-group" Data="GroupOptions" @bind-Values="_groupBy"
+                              ValueFieldName="@nameof(ListOption<string>.Value)" TextFieldName="@nameof(ListOption<string>.Text)" />
+                </Field>
+            </FieldGrid>
+        </Criteria>
+        <Result>
+            @if (_report is { } r)
+            {
+                <div class="page-stack">
+                    <div class="kpis" role="list">
+                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Submitted"]</span><span class="kpi__value">@r.Totals.Submitted.ToString("N0")</span></div>
+                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Succeeded"]</span><span class="kpi__value">@r.Totals.Succeeded.ToString("N0")</span></div>
+                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Failed"]</span><span class="kpi__value">@r.Totals.Failed.ToString("N0")</span></div>
+                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.SuccessRate"]</span><span class="kpi__value">@Fmt.Percent(r.Totals.SuccessRate)</span></div>
+                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.P95"]</span><span class="kpi__value">@Fmt.Duration(r.Totals.P95DurationMs)</span></div>
+                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Throughput"]</span><span class="kpi__value">@r.Totals.ThroughputPerHour.ToString("N1")</span></div>
+                    </div>
+
+                    @if (_rows is { Count: > 1 } && r.GroupBy.Count == 1 && r.GroupBy[0] == "day")
+                    {
+                        <DxChart T="StatisticsRow" Data="_rows" Height="280px" Attributes="@(new Dictionary<string, object> { ["role"] = "img", ["aria-label"] = L["Stats.ChartLabel"].Value })">
+                            <DxChartTitle Text="@L["Stats.Chart"]" />
+                            <DxChartBarSeries T="StatisticsRow" TArgument="string" TValue="int" Name="@L["Stats.Succeeded"]" ArgumentField="x => x.DayText" ValueField="x => x.Succeeded" />
+                            <DxChartBarSeries T="StatisticsRow" TArgument="string" TValue="int" Name="@L["Stats.Failed"]" ArgumentField="x => x.DayText" ValueField="x => x.Failed" />
+                            <DxChartLegend Position="RelativePosition.Outside" HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalEdge.Bottom" />
+                            <DxChartTooltip Enabled="true" />
+                        </DxChart>
+                    }
+
+                    <DxGrid @ref="_grid" Data="_rows" KeyFieldName="@nameof(StatisticsRow.Index)" ShowAllRows="true" AllowSort="true" ColumnResizeMode="GridColumnResizeMode.NextColumn">
+                        <Columns>
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.Day)" Caption="@L["Stats.Day"]" DisplayFormat="dd/MM/yyyy" Visible="@r.GroupBy.Contains("day")" Width="110px" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.JobType)" Caption="@L["Job.JobType"]" Visible="@r.GroupBy.Contains("jobType")" MinWidth="140" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.Worker)" Caption="@L["Job.Worker"]" Visible="@r.GroupBy.Contains("worker")" MinWidth="140" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.Submitted)" Caption="@L["Stats.Submitted"]" DisplayFormat="N0" Visible="@(!r.GroupBy.Contains("worker"))" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.Succeeded)" Caption="@L["Stats.Succeeded"]" DisplayFormat="N0" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.Failed)" Caption="@L["Stats.Failed"]" DisplayFormat="N0" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.Cancelled)" Caption="@L["Stats.Cancelled"]" DisplayFormat="N0" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.SuccessRate)" Caption="@L["Stats.SuccessRatePct"]" DisplayFormat="0.0" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.AvgAttempts)" Caption="@L["Stats.AvgAttempts"]" DisplayFormat="0.00" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.AvgDurationMs)" Caption="@L["Stats.AvgMs"]" DisplayFormat="N0" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.P95DurationMs)" Caption="@L["Stats.P95Ms"]" DisplayFormat="N0" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.AvgQueueWaitMs)" Caption="@L["Stats.QueueWaitMs"]" DisplayFormat="N0" />
+                            <DxGridDataColumn FieldName="@nameof(StatisticsRow.ThroughputPerHour)" Caption="@L["Stats.Throughput"]" DisplayFormat="0.0" />
+                        </Columns>
+                        <TotalSummary>
+                            <DxGridSummaryItem SummaryType="GridSummaryItemType.Sum" FieldName="@nameof(StatisticsRow.Succeeded)" ValueDisplayFormat="N0" DisplayText="{0}" />
+                            <DxGridSummaryItem SummaryType="GridSummaryItemType.Sum" FieldName="@nameof(StatisticsRow.Failed)" ValueDisplayFormat="N0" DisplayText="{0}" />
+                            <DxGridSummaryItem SummaryType="GridSummaryItemType.Sum" FieldName="@nameof(StatisticsRow.Cancelled)" ValueDisplayFormat="N0" DisplayText="{0}" />
+                        </TotalSummary>
+                    </DxGrid>
+                    <p class="muted">@L["Stats.Note", r.TimeZone]</p>
+                </div>
+            }
+        </Result>
+    </ReportTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private GridExportService Exporter { get; set; } = default!;
+
+    private static readonly IReadOnlyList<ListOption<string>> GroupOptions =
+        [new("day", AppText.Get("Stats.Group.day")), new("jobType", AppText.Get("Stats.Group.jobType")), new("worker", AppText.Get("Stats.Group.worker"))];
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Analysis")), new(AppText.Get("Menu.JobStatistics"))];
+    private readonly ExportFormat[] _formats = [ExportFormat.Excel, ExportFormat.Csv, ExportFormat.Pdf];
+    private readonly CancellationTokenSource _cts = new();
+    private IGrid? _grid;
+    private DateTime? _from = DateTime.Today.AddDays(-6);
+    private DateTime? _to = DateTime.Today;
+    private string? _jobType;
+    private Guid? _workerId;
+    private IEnumerable<string> _groupBy = ["day"];
+    private List<string> _jobTypes = [];
+    private List<ListOption<Guid?>> _workers = [];
+    private JobStatisticsReportResponse? _report;
+    private List<StatisticsRow>? _rows;
+    private string? _summary;
+    private bool _busy;
+    private string? _error;
+
+    private int ActiveCount => (string.IsNullOrWhiteSpace(_jobType) ? 0 : 1) + (_workerId is null ? 0 : 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var types = Api.GetJobTypesAsync(_cts.Token);
+            var workers = Api.ListWorkersAsync(true, _cts.Token);
+            _jobTypes = (await types).Select(t => t.JobType).Order(StringComparer.Ordinal).ToList();
+            _workers = (await workers).OrderBy(w => w.Name, StringComparer.CurrentCulture).Select(w => new ListOption<Guid?>(w.WorkerId, w.Name)).ToList();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
+        {
+        }
+    }
+
+    private async Task GenerateAsync()
+    {
+        if (_from is null || _to is null || _from > _to)
+        {
+            _error = L["Common.DateRangeError"];
+            return;
+        }
+        _busy = true;
+        _error = null;
+        try
+        {
+            var groups = _groupBy.Any() ? string.Join(',', _groupBy) : "day";
+            var from = DateOnly.FromDateTime(_from.Value);
+            var to = DateOnly.FromDateTime(_to.Value);
+            var type = string.IsNullOrWhiteSpace(_jobType) ? null : _jobType.Trim();
+            _report = await Splash.RunAsync(L["Stats.Loading"], (_, ct) => Api.GetJobStatisticsAsync(from, to, type, _workerId, groups, "Asia/Bangkok", ct), cancellationToken: _cts.Token);
+            _rows = _report.Rows.Select((row, i) => new StatisticsRow(i, row)).ToList();
+            var parts = new List<string> { $"{from:dd/MM/yyyy} - {to:dd/MM/yyyy}" };
+            if (type is not null) parts.Add($"{L["Job.JobType"]}: {type}");
+            if (_workerId is { } w) parts.Add($"{L["Job.Worker"]}: {_workers.FirstOrDefault(x => x.Value == w)?.Text ?? w.ToString()}");
+            parts.Add($"{L["Stats.GroupBy"]}: {string.Join(", ", _report.GroupBy.Select(g => AppText.Get($"Stats.Group.{g}")))}");
+            _summary = string.Join(" · ", parts);
+        }
+        catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Clear()
+    {
+        (_from, _to, _jobType, _workerId, _groupBy) = (DateTime.Today.AddDays(-6), DateTime.Today, null, null, ["day"]);
+        _report = null;
+        _error = null;
+    }
+
+    private async Task ExportAsync(ExportFormat format)
+    {
+        if (_grid is not null) await Exporter.ExportAsync(_grid, format, L["Menu.JobStatistics"], _summary);
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

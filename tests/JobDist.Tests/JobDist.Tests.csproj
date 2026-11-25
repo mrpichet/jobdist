@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\JobDist.Infrastructure\JobDist.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\JobDist.Mcp\JobDist.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\JobDist.Server\JobDist.Server.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MSTest" />

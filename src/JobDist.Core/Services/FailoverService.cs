@@ -21,6 +21,7 @@ public sealed class FailoverService(
     IWorkerDAO workers,
     IJobDAO jobs,
     JobExecutionService execution,
+    AlertDispatchService alerts,
     IOptions<JobDistOptions> options,
     TimeProvider time,
     ILogger<FailoverService> logger)
@@ -56,6 +57,12 @@ public sealed class FailoverService(
                 }
             }
             logger.LogWarning("Worker {Name} ({WorkerId}) is offline; {Count} jobs re-distributed.", worker.Name, worker.WorkerId, held.Count);
+
+            // Event key = worker + offline counter: a duplicate scan or a late re-registration never repeats the same alert.
+            await alerts.TryPublishAsync(new Domain.AlertEventDTO($"WorkerLost:{worker.WorkerId}:{worker.OfflineCount + 1}", AlertEventType.WorkerLost, AlertSeverity.Warning,
+                $"worker:{worker.Name}", $"[JobDist][Warning] Worker lost: {worker.Name}",
+                $"Worker {worker.Name} ({worker.WorkerId}) stopped sending heartbeats without unregistering. Last heartbeat {worker.LastHeartbeatUtc:yyyy-MM-dd HH:mm:ss} UTC " +
+                $"(limit {o.OfflineAfterSeconds}s). {held.Count} job(s) were re-distributed to other workers.", now), ct).ConfigureAwait(false);
         }
 
         // Step 2: jobs whose lease expired although the worker still heartbeats (lost delivery, hung handler).

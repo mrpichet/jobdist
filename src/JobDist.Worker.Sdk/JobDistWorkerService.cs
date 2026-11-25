@@ -263,7 +263,7 @@ public sealed class JobDistWorkerService(
                 var memInfo = GC.GetGCMemoryInfo();
                 var memPercent = memInfo.TotalAvailableMemoryBytes > 0 ? 100.0 * memInfo.MemoryLoadBytes / memInfo.TotalAvailableMemoryBytes : 0;
                 var response = await api.HeartbeatAsync(new HeartbeatRequest(
-                    _running.Keys.Take(4096).ToList(), Math.Clamp(cpu.Sample(), 0, 100), Math.Clamp(memPercent, 0, 100)), ct).ConfigureAwait(false);
+                    _running.Keys.Take(4096).ToList(), Math.Clamp(cpu.Sample(), 0, 100), Math.Clamp(memPercent, 0, 100), DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
                 // Step 2: server-side drain flag and signed commands.
                 if (response.Status == WorkerStatus.Draining && !_draining)

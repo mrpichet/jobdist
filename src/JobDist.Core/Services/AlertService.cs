@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using JobDist.Contracts;
 using JobDist.Core.Domain;
 using JobDist.Core.Observability;
 using JobDist.Core.Options;
@@ -8,25 +9,11 @@ using Microsoft.Extensions.Options;
 
 namespace JobDist.Core.Services;
 
-/// <summary>Alert for administrators.</summary>
-/// <param name="Title">Short subject.</param>
-/// <param name="Body">Plain-text details.</param>
-/// <param name="Severity">Highest severity included.</param>
-public sealed record AdminAlertDTO(string Title, string Body, AnomalySeverity Severity);
-
-/// <summary>Delivers admin alerts (implemented in Infrastructure by the mrpichet/messagehub API client).</summary>
-public interface IAlertSender
-{
-    /// <summary>Sends an alert.</summary>
-    /// <returns><c>true</c> when the alert was accepted by the delivery service.</returns>
-    Task<bool> SendAsync(AdminAlertDTO alert, CancellationToken ct);
-}
-
 /// <summary>
 /// Turns anomaly reports into admin alerts: filters by severity, suppresses repeats of the same anomaly within a cooldown
-/// (no alert storms), groups everything of one scan into a single message and sends it through <see cref="IAlertSender"/>.
+/// (no alert storms), groups everything of one scan into a single message and queues it in the alert outbox (event <c>AnomalyDetected</c>).
 /// </summary>
-public sealed class AlertService(IAlertSender sender, JobDistMetrics metrics, IOptions<AnomalyOptions> options, TimeProvider time, ILogger<AlertService> logger)
+public sealed class AlertService(AlertDispatchService dispatch, JobDistMetrics metrics, IOptions<AnomalyOptions> options, TimeProvider time, ILogger<AlertService> logger)
 {
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastSent = new();
 
@@ -61,22 +48,21 @@ public sealed class AlertService(IAlertSender sender, JobDistMetrics metrics, IO
         {
             body.AppendLine($"- [{a.Severity}] {a.Kind} on {a.Subject}: {a.Description}");
         }
-        var alert = new AdminAlertDTO($"[JobDist][{top}] {fresh.Count} anomaly(ies): {fresh[0].Kind}", body.ToString(), top);
+        var severity = (AlertSeverity)(int)top;
+        var key = force
+            ? $"AnomalyDetected:manual:{Guid.NewGuid():N}"
+            : $"AnomalyDetected:{report.ToUtc.UtcDateTime:yyyyMMddHHmm}:{StableHash(string.Join('|', fresh.Select(Key).Order(StringComparer.Ordinal)))}";
+        var alert = new AlertEventDTO(key, AlertEventType.AnomalyDetected, severity, "cluster:anomalies",
+            $"[JobDist][{top}] {fresh.Count} anomaly(ies): {fresh[0].Kind}", body.ToString(), now);
 
-        // Step 3: send; remember cooldown only on success (a failed send is retried on the next scan).
-        bool ok;
+        // Step 3: queue; remember cooldown only on success (a failed insert is retried on the next scan).
         try
         {
-            ok = await sender.SendAsync(alert, ct).ConfigureAwait(false);
+            await dispatch.PublishAsync(alert, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogError(ex, "Sending admin alert failed.");
-            ok = false;
-        }
-        metrics.AlertSent(ok);
-        if (!ok)
-        {
+            logger.LogError(ex, "Queueing admin alert failed.");
             return [];
         }
         foreach (var a in fresh)
@@ -87,4 +73,8 @@ public sealed class AlertService(IAlertSender sender, JobDistMetrics metrics, IO
     }
 
     private static string Key(AnomalyDTO a) => $"{a.Kind}|{a.Subject}";
+
+    // Same on every instance and restart (string.GetHashCode is randomised per process).
+    private static string StableHash(string value) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(value)), 0, 6);
 }

@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AlertEvent.AnomalyDetected" xml:space="preserve"><value>พบความผิดปกติ</value></data>
+  <data name="AlertEvent.LeaderChanged" xml:space="preserve"><value>เปลี่ยน Job Server หลัก</value></data>
+  <data name="AlertEvent.QueueNearLimit" xml:space="preserve"><value>คิวใกล้เต็ม</value></data>
+  <data name="AlertEvent.QueueOverLimit" xml:space="preserve"><value>คิวเกินเกณฑ์</value></data>
+  <data name="AlertEvent.Test" xml:space="preserve"><value>ทดสอบส่ง</value></data>
+  <data name="AlertEvent.WorkerLost" xml:space="preserve"><value>Worker หาย (ไม่ได้ถอดออก)</value></data>
+  <data name="AlertEvent.WorkerRegistered" xml:space="preserve"><value>Worker ลงทะเบียน</value></data>
+  <data name="AlertEvent.WorkerUnregistered" xml:space="preserve"><value>Worker ถูกถอดออก</value></data>
+  <data name="AlertLog.Attempts" xml:space="preserve"><value>จำนวนครั้ง</value></data>
+  <data name="AlertLog.CorrelationId" xml:space="preserve"><value>MessageHub message id</value></data>
+  <data name="AlertLog.Created" xml:space="preserve"><value>เวลา</value></data>
+  <data name="AlertLog.Description" xml:space="preserve"><value>การส่งแจ้งเตือนแต่ละครั้งไปยังผู้รับแต่ละคนผ่าน MessageHub รวมผลการส่งและจำนวนครั้งที่ลอง</value></data>
+  <data name="AlertLog.Error" xml:space="preserve"><value>ข้อผิดพลาด</value></data>
+  <data name="AlertLog.Event" xml:space="preserve"><value>เหตุการณ์</value></data>
+  <data name="AlertLog.Found" xml:space="preserve"><value>แสดง {0:N0} จากทั้งหมด {1:N0} รายการ</value></data>
+  <data name="AlertLog.Loading" xml:space="preserve"><value>กำลังโหลดประวัติการแจ้งเตือน</value></data>
+  <data name="AlertLog.Recipient" xml:space="preserve"><value>ผู้รับ</value></data>
+  <data name="AlertLog.Sent" xml:space="preserve"><value>ส่งสำเร็จเมื่อ</value></data>
+  <data name="AlertLog.Status" xml:space="preserve"><value>ผลการส่ง</value></data>
+  <data name="AlertLog.SuccessRate" xml:space="preserve"><value>อัตราส่งสำเร็จ {0}</value></data>
+  <data name="AlertLog.Title" xml:space="preserve"><value>หัวข้อ</value></data>
+  <data name="Anomaly.Description" xml:space="preserve"><value>ความผิดปกติที่ระบบตรวจพบในช่วงเวลาที่เลือก</value></data>
+  <data name="Anomaly.DetectedAt" xml:space="preserve"><value>เวลา</value></data>
+  <data name="Anomaly.Expected" xml:space="preserve"><value>ค่าที่คาด</value></data>
+  <data name="Anomaly.Kind" xml:space="preserve"><value>ประเภท</value></data>
+  <data name="Anomaly.Loading" xml:space="preserve"><value>กำลังตรวจหาความผิดปกติ</value></data>
+  <data name="Anomaly.None" xml:space="preserve"><value>ไม่พบความผิดปกติ</value></data>
+  <data name="Anomaly.NoneHint" xml:space="preserve"><value>ลองขยายช่วงเวลาย้อนหลัง</value></data>
+  <data name="Anomaly.Observed" xml:space="preserve"><value>ค่าที่พบ</value></data>
+  <data name="Anomaly.Score" xml:space="preserve"><value>คะแนน</value></data>
+  <data name="Anomaly.SendAlert" xml:space="preserve"><value>ส่งแจ้งเตือนทันที</value></data>
+  <data name="Anomaly.Sent" xml:space="preserve"><value>ส่งแจ้งเตือน {0} รายการผ่าน MessageHub แล้ว</value></data>
+  <data name="Anomaly.Severity" xml:space="preserve"><value>ความรุนแรง</value></data>
+  <data name="Anomaly.Subject" xml:space="preserve"><value>เรื่อง</value></data>
+  <data name="Anomaly.Window" xml:space="preserve"><value>ช่วงเวลาย้อนหลัง (นาที)</value></data>
+  <data name="Anomaly.WindowHint" xml:space="preserve"><value>5-1,440 นาที</value></data>
+  <data name="Anomaly.WindowSummary" xml:space="preserve"><value>ย้อนหลัง {0} นาที</value></data>
+  <data name="AnomalyKind.FailoverStorm" xml:space="preserve"><value>ย้ายงานจำนวนมาก</value></data>
+  <data name="AnomalyKind.HighFailureRate" xml:space="preserve"><value>อัตราล้มเหลวสูง</value></data>
+  <data name="AnomalyKind.QueueStarvation" xml:space="preserve"><value>คิวค้างไม่มีคนทำ</value></data>
+  <data name="AnomalyKind.SlowExecution" xml:space="preserve"><value>ทำงานช้าผิดปกติ</value></data>
+  <data name="AnomalyKind.SubmissionSpike" xml:space="preserve"><value>งานเข้าพุ่งสูง</value></data>
+  <data name="AnomalyKind.SuspiciousWorkerActivity" xml:space="preserve"><value>Worker มีพฤติกรรมน่าสงสัย</value></data>
+  <data name="AnomalyKind.WorkerFlapping" xml:space="preserve"><value>Worker หลุดบ่อย</value></data>
+  <data name="App.CheckingAccess" xml:space="preserve"><value>กำลังตรวจสอบสิทธิ์...</value></data>
+  <data name="Attempt.Assigned" xml:space="preserve"><value>มอบหมายเมื่อ</value></data>
+  <data name="Attempt.Finished" xml:space="preserve"><value>จบเมื่อ</value></data>
+  <data name="Attempt.Outcome" xml:space="preserve"><value>ผล</value></data>
+  <data name="Attempt.QueueWait" xml:space="preserve"><value>รอคิว</value></data>
+  <data name="Attempt.Score" xml:space="preserve"><value>คะแนนจัดสรร</value></data>
+  <data name="Common.All" xml:space="preserve"><value>ทั้งหมด</value></data>
+  <data name="Common.AllData" xml:space="preserve"><value>ทุกรายการ</value></data>
+  <data name="Common.Conflict" xml:space="preserve"><value>ข้อมูลถูกแก้ไขโดยผู้อื่นแล้ว กรุณาโหลดใหม่แล้วลองอีกครั้ง</value></data>
+  <data name="Common.Count" xml:space="preserve"><value>จำนวน</value></data>
+  <data name="Common.DateRangeError" xml:space="preserve"><value>วันที่เริ่มต้องไม่หลังวันที่สิ้นสุด</value></data>
+  <data name="Common.Deleting" xml:space="preserve"><value>กำลังลบข้อมูล</value></data>
+  <data name="Common.Disabled" xml:space="preserve"><value>ปิดใช้งาน</value></data>
+  <data name="Common.Enabled" xml:space="preserve"><value>เปิดใช้งาน</value></data>
+  <data name="Common.From" xml:space="preserve"><value>ตั้งแต่วันที่</value></data>
+  <data name="Common.LoadFailed" xml:space="preserve"><value>โหลดข้อมูลไม่สำเร็จ</value></data>
+  <data name="Common.NetworkError" xml:space="preserve"><value>ติดต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่</value></data>
+  <data name="Common.No" xml:space="preserve"><value>ไม่ใช่</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>รีเฟรช</value></data>
+  <data name="Common.Saving" xml:space="preserve"><value>กำลังบันทึก</value></data>
+  <data name="Common.Status" xml:space="preserve"><value>สถานะ</value></data>
+  <data name="Common.To" xml:space="preserve"><value>ถึงวันที่</value></data>
+  <data name="Common.Updated" xml:space="preserve"><value>แก้ไขล่าสุด</value></data>
+  <data name="Common.UpdatedBy" xml:space="preserve"><value>แก้ไขโดย</value></data>
+  <data name="Common.UpdatedByAt" xml:space="preserve"><value>แก้ไขล่าสุดโดย {0} เมื่อ {1}</value></data>
+  <data name="Common.ViewAll" xml:space="preserve"><value>ดูทั้งหมด</value></data>
+  <data name="Common.Yes" xml:space="preserve"><value>ใช่</value></data>
+  <data name="Dashboard.ActiveJobs" xml:space="preserve"><value>งานที่กำลังทำ</value></data>
+  <data name="Dashboard.AutoRefresh" xml:space="preserve"><value>รีเฟรชอัตโนมัติ</value></data>
+  <data name="Dashboard.Capacity" xml:space="preserve"><value>ความจุรวม (งานพร้อมกัน)</value></data>
+  <data name="Dashboard.Description" xml:space="preserve"><value>สถานะ Worker งานที่กำลังทำ คิว และความผิดปกติล่าสุดของทั้งระบบ</value></data>
+  <data name="Dashboard.GeneratedAt" xml:space="preserve"><value>ข้อมูล ณ เวลา</value></data>
+  <data name="Dashboard.JobsByStatus" xml:space="preserve"><value>Job ตามสถานะ</value></data>
+  <data name="Dashboard.Leader" xml:space="preserve"><value>Job Server หลัก (Primary)</value></data>
+  <data name="Dashboard.LeaderInstance" xml:space="preserve"><value>Instance ที่เป็น Primary</value></data>
+  <data name="Dashboard.NoLeader" xml:space="preserve"><value>ยังไม่มี Primary</value></data>
+  <data name="Dashboard.NoPending" xml:space="preserve"><value>ไม่มีงานรอคิว</value></data>
+  <data name="Dashboard.NoThresholds" xml:space="preserve"><value>ยังไม่ได้ตั้งเกณฑ์คิว</value></data>
+  <data name="Dashboard.PendingByType" xml:space="preserve"><value>งานรอคิวตามประเภท</value></data>
+  <data name="Dashboard.PendingJobs" xml:space="preserve"><value>งานรอคิว</value></data>
+  <data name="Dashboard.QueueUsage" xml:space="preserve"><value>การใช้คิวเทียบกับเกณฑ์</value></data>
+  <data name="Dashboard.QueueUsageHint" xml:space="preserve"><value>ถึงเกณฑ์ใกล้เต็มจะแจ้งเตือน ถึง 100% จะแจ้งเตือนและปฏิเสธงานใหม่ของประเภทนั้น</value></data>
+  <data name="Dashboard.RecentAnomalies" xml:space="preserve"><value>ความผิดปกติล่าสุด (15 นาที)</value></data>
+  <data name="Dashboard.RefreshEvery" xml:space="preserve"><value>ทุก {0} วินาที</value></data>
+  <data name="Dashboard.RefreshOff" xml:space="preserve"><value>ปิด</value></data>
+  <data name="Dashboard.ThisInstance" xml:space="preserve"><value>เครื่องที่ตอบคำขอนี้เป็น Primary</value></data>
+  <data name="Dashboard.Updated" xml:space="preserve"><value>อัปเดตภาพรวมเมื่อ {0}</value></data>
+  <data name="Dashboard.WorkersDraining" xml:space="preserve"><value>Worker กำลัง Drain</value></data>
+  <data name="Dashboard.WorkersOffline" xml:space="preserve"><value>Worker ออฟไลน์</value></data>
+  <data name="Dashboard.WorkersOnline" xml:space="preserve"><value>Worker ออนไลน์</value></data>
+  <data name="Error.PageTitle" xml:space="preserve"><value>ข้อผิดพลาด {0}</value></data>
+  <data name="Import.Choose" xml:space="preserve"><value>เลือกไฟล์</value></data>
+  <data name="Import.Col.IdempotencyKey" xml:space="preserve"><value>Idempotency key</value></data>
+  <data name="Import.Col.JobType" xml:space="preserve"><value>ประเภท Job</value></data>
+  <data name="Import.Col.MaxAttempts" xml:space="preserve"><value>จำนวนครั้งสูงสุด</value></data>
+  <data name="Import.Col.Payload" xml:space="preserve"><value>Payload (JSON)</value></data>
+  <data name="Import.Col.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Import.Col.RunAt" xml:space="preserve"><value>เวลาเริ่มรัน</value></data>
+  <data name="Import.Col.Sensitive" xml:space="preserve"><value>ข้อมูลอ่อนไหว</value></data>
+  <data name="Import.Col.StrictTarget" xml:space="preserve"><value>บังคับเฉพาะ Worker</value></data>
+  <data name="Import.Col.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Import.Col.TargetWorkerId" xml:space="preserve"><value>Worker ID ที่ต้องการ</value></data>
+  <data name="Import.Col.TimeoutSeconds" xml:space="preserve"><value>Timeout (วินาที)</value></data>
+  <data name="Import.Column" xml:space="preserve"><value>คอลัมน์</value></data>
+  <data name="Import.Description" xml:space="preserve"><value>ส่งหลาย Job พร้อมกันจากไฟล์ Excel (.xlsx) หรือ CSV ไม่เกิน 5,000 แถว</value></data>
+  <data name="Import.DialogDescription" xml:space="preserve"><value>ไฟล์ต้องมีหัวคอลัมน์ ใช้ได้ทั้งชื่อภาษาไทยและอังกฤษ</value></data>
+  <data name="Import.DoneHint" xml:space="preserve"><value>ดูงานที่ส่งได้ในหน้ารายการ Job</value></data>
+  <data name="Import.Duplicate" xml:space="preserve"><value>มีอยู่แล้ว</value></data>
+  <data name="Import.DuplicatesSkipped" xml:space="preserve"><value>{0:N0} แถวเป็นงานที่มีอยู่แล้ว (ไม่สร้างซ้ำ)</value></data>
+  <data name="Import.Hint.IdempotencyKey" xml:space="preserve"><value>ไม่ซ้ำกันในไฟล์ ว่าง = ระบบสร้างให้</value></data>
+  <data name="Import.Hint.JobType" xml:space="preserve"><value>ตรงกับ Handler ของ Worker เช่น image.resize</value></data>
+  <data name="Import.Hint.MaxAttempts" xml:space="preserve"><value>1-20 ว่าง = ค่าเริ่มต้น</value></data>
+  <data name="Import.Hint.Payload" xml:space="preserve"><value>JSON ไม่เกิน 1 MB</value></data>
+  <data name="Import.Hint.Priority" xml:space="preserve"><value>0-100 ว่าง = 50</value></data>
+  <data name="Import.Hint.RunAt" xml:space="preserve"><value>yyyy-MM-dd HH:mm เวลาของเครื่องคุณ ว่าง = ทันที</value></data>
+  <data name="Import.Hint.Sensitive" xml:space="preserve"><value>true = เข้ารหัส Payload</value></data>
+  <data name="Import.Hint.StrictTarget" xml:space="preserve"><value>true = รอ Worker นี้เท่านั้น</value></data>
+  <data name="Import.Hint.Tags" xml:space="preserve"><value>คั่นด้วยจุลภาค ไม่เกิน 10</value></data>
+  <data name="Import.Hint.TargetWorkerId" xml:space="preserve"><value>GUID ของ Worker ว่าง = ให้ระบบเลือก</value></data>
+  <data name="Import.Hint.TimeoutSeconds" xml:space="preserve"><value>1-86,400 ว่าง = ค่าเริ่มต้น</value></data>
+  <data name="Import.HowTitle" xml:space="preserve"><value>ขั้นตอน</value></data>
+  <data name="Import.Invalid.Bool" xml:space="preserve"><value>ต้องเป็น true/false หรือ ใช่/ไม่</value></data>
+  <data name="Import.Invalid.Date" xml:space="preserve"><value>รูปแบบวันที่ต้องเป็น yyyy-MM-dd HH:mm หรือ dd/MM/yyyy HH:mm</value></data>
+  <data name="Import.Invalid.Guid" xml:space="preserve"><value>ต้องเป็น Worker ID รูปแบบ GUID</value></data>
+  <data name="Import.Invalid.Number" xml:space="preserve"><value>ต้องเป็นจำนวนเต็ม</value></data>
+  <data name="Import.Meaning" xml:space="preserve"><value>ความหมาย</value></data>
+  <data name="Import.MoreRows" xml:space="preserve"><value>และอีก {0:N0} รายการ</value></data>
+  <data name="Import.Required" xml:space="preserve"><value>บังคับ</value></data>
+  <data name="Import.ResultSummary" xml:space="preserve"><value>สร้างใหม่ {0:N0} งาน · มีอยู่แล้ว {1:N0} งาน</value></data>
+  <data name="Import.ResultTitle" xml:space="preserve"><value>ผลการนำเข้าล่าสุด</value></data>
+  <data name="Import.Saving" xml:space="preserve"><value>กำลังส่ง {0:N0} งาน</value></data>
+  <data name="Import.Step1" xml:space="preserve"><value>กด "เลือกไฟล์" แล้วดาวน์โหลดไฟล์ตัวอย่าง</value></data>
+  <data name="Import.Step2" xml:space="preserve"><value>กรอกข้อมูล 1 แถวต่อ 1 งาน ตามคอลัมน์ด้านล่าง</value></data>
+  <data name="Import.Step3" xml:space="preserve"><value>อัปโหลดไฟล์ ระบบตรวจทุกแถวและแสดงแถวที่ผิดพร้อมเหตุผล</value></data>
+  <data name="Import.Step4" xml:space="preserve"><value>ยืนยันนำเข้า ระบบส่งงานทั้งหมดในคำขอเดียว (ผิดแถวใดจะไม่ส่งทั้งไฟล์) นำเข้าไฟล์เดิมซ้ำจะไม่สร้างงานซ้ำ</value></data>
+  <data name="Job.Attempt" xml:space="preserve"><value>ครั้งที่/สูงสุด</value></data>
+  <data name="Job.Cancel" xml:space="preserve"><value>ยกเลิก Job</value></data>
+  <data name="Job.CancelPage.Confirm" xml:space="preserve"><value>ยืนยันยกเลิก</value></data>
+  <data name="Job.CancelPage.Description" xml:space="preserve"><value>ตรวจสอบข้อมูลก่อนยืนยัน การยกเลิกย้อนกลับไม่ได้</value></data>
+  <data name="Job.CancelPage.Done" xml:space="preserve"><value>ยกเลิกงานแล้ว</value></data>
+  <data name="Job.CancelPage.NotAllowed" xml:space="preserve"><value>ยกเลิกไม่ได้</value></data>
+  <data name="Job.CancelPage.NotAllowedHint" xml:space="preserve"><value>งานอยู่ในสถานะ {0} แล้ว</value></data>
+  <data name="Job.CancelPage.ReasonHint" xml:space="preserve"><value>ไม่บังคับ ไม่เกิน 500 ตัวอักษร (ส่งให้ Worker และเก็บในประวัติ)</value></data>
+  <data name="Job.CancelPage.Requested" xml:space="preserve"><value>ส่งคำสั่งหยุดให้ Worker แล้ว สถานะจะเป็นยกเลิกเมื่อ Worker หยุดงาน</value></data>
+  <data name="Job.CancelPage.RunningHint" xml:space="preserve"><value>ระบบจะส่งคำสั่งหยุดให้ Worker สถานะจะเป็น "รอหยุดงาน" จนกว่า Worker หยุด</value></data>
+  <data name="Job.CancelPage.RunningTitle" xml:space="preserve"><value>Worker กำลังทำงานนี้</value></data>
+  <data name="Job.CancelPage.Saving" xml:space="preserve"><value>กำลังยกเลิกงาน</value></data>
+  <data name="Job.CancelPage.Title" xml:space="preserve"><value>ยกเลิก Job {0}</value></data>
+  <data name="Job.CancelReason" xml:space="preserve"><value>เหตุผลที่ยกเลิก</value></data>
+  <data name="Job.Completed" xml:space="preserve"><value>เสร็จเมื่อ</value></data>
+  <data name="Job.Created" xml:space="preserve"><value>สร้างเมื่อ</value></data>
+  <data name="Job.Detail.AttemptsHint" xml:space="preserve"><value>การมอบหมายแต่ละครั้ง รวมครั้งที่ย้ายไป Worker อื่น</value></data>
+  <data name="Job.Detail.Description" xml:space="preserve"><value>สถานะ ข้อมูลงาน ผลลัพธ์ ประวัติการรัน และความเสี่ยง</value></data>
+  <data name="Job.Detail.NoAttempts" xml:space="preserve"><value>ยังไม่เคยถูกมอบหมาย</value></data>
+  <data name="Job.Detail.NoResult" xml:space="preserve"><value>ยังไม่มีผลลัพธ์</value></data>
+  <data name="Job.Detail.Section.Attempts" xml:space="preserve"><value>ประวัติการรัน</value></data>
+  <data name="Job.Detail.Section.Data" xml:space="preserve"><value>ข้อมูลงาน</value></data>
+  <data name="Job.Detail.Section.Result" xml:space="preserve"><value>ผลลัพธ์</value></data>
+  <data name="Job.Detail.Section.Risk" xml:space="preserve"><value>ความเสี่ยง</value></data>
+  <data name="Job.Detail.Section.Status" xml:space="preserve"><value>สถานะ</value></data>
+  <data name="Job.Detail.SensitiveHidden" xml:space="preserve"><value>ใช่ (ไม่แสดง Payload)</value></data>
+  <data name="Job.Detail.Title" xml:space="preserve"><value>Job {0}</value></data>
+  <data name="Job.Duration" xml:space="preserve"><value>ระยะเวลา</value></data>
+  <data name="Job.Id" xml:space="preserve"><value>Job ID</value></data>
+  <data name="Job.IdempotencyKey" xml:space="preserve"><value>Idempotency key</value></data>
+  <data name="Job.JobType" xml:space="preserve"><value>ประเภท Job</value></data>
+  <data name="Job.LastError" xml:space="preserve"><value>ข้อผิดพลาดล่าสุด</value></data>
+  <data name="Job.List.Description" xml:space="preserve"><value>ค้นหาและติดตาม Job เรียงจากใหม่ไปเก่า</value></data>
+  <data name="Job.List.Found" xml:space="preserve"><value>แสดง {0:N0} จากทั้งหมด {1:N0} รายการ</value></data>
+  <data name="Job.List.Loading" xml:space="preserve"><value>กำลังค้นหา Job</value></data>
+  <data name="Job.List.MaxRows" xml:space="preserve"><value>จำนวนแถวสูงสุด</value></data>
+  <data name="Job.MaxAttempts" xml:space="preserve"><value>จำนวนครั้งสูงสุด</value></data>
+  <data name="Job.NotFound" xml:space="preserve"><value>ไม่พบ Job</value></data>
+  <data name="Job.NotFoundHint" xml:space="preserve"><value>Job นี้อาจถูกลบตามระยะเวลาเก็บข้อมูลแล้ว</value></data>
+  <data name="Job.Payload" xml:space="preserve"><value>Payload (JSON)</value></data>
+  <data name="Job.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Job.Priority.Description" xml:space="preserve"><value>แก้ได้เฉพาะ Priority และเฉพาะงานที่ยังไม่จบ</value></data>
+  <data name="Job.Priority.Final" xml:space="preserve"><value>งานนี้จบแล้ว</value></data>
+  <data name="Job.Priority.FinalHint" xml:space="preserve"><value>เปลี่ยน Priority ไม่ได้</value></data>
+  <data name="Job.Priority.New" xml:space="preserve"><value>Priority ใหม่</value></data>
+  <data name="Job.Priority.Saved" xml:space="preserve"><value>เปลี่ยน Priority เป็น {0} แล้ว</value></data>
+  <data name="Job.Priority.Title" xml:space="preserve"><value>เปลี่ยน Priority ของ Job {0}</value></data>
+  <data name="Job.Result" xml:space="preserve"><value>ผลลัพธ์</value></data>
+  <data name="Job.RunAt" xml:space="preserve"><value>เวลาเริ่มรัน</value></data>
+  <data name="Job.Sensitive" xml:space="preserve"><value>ข้อมูลอ่อนไหว (เข้ารหัส Payload)</value></data>
+  <data name="Job.Started" xml:space="preserve"><value>เริ่มเมื่อ</value></data>
+  <data name="Job.Status" xml:space="preserve"><value>สถานะ</value></data>
+  <data name="Job.StrictTarget" xml:space="preserve"><value>บังคับเฉพาะ Worker นี้</value></data>
+  <data name="Job.Submit.AnyWorker" xml:space="preserve"><value>ให้ระบบเลือก</value></data>
+  <data name="Job.Submit.Assess" xml:space="preserve"><value>ประเมินความเสี่ยง</value></data>
+  <data name="Job.Submit.DefaultHint" xml:space="preserve"><value>ว่าง = ค่าเริ่มต้นของระบบ</value></data>
+  <data name="Job.Submit.Description" xml:space="preserve"><value>กรอกข้อมูลงาน ระบบจะเลือก Worker ที่เหมาะสมให้ ถ้าไม่ระบุ Worker</value></data>
+  <data name="Job.Submit.Duplicate" xml:space="preserve"><value>มีงานนี้อยู่แล้ว (Idempotency key ซ้ำ): {0}</value></data>
+  <data name="Job.Submit.IdempotencyHint" xml:space="preserve"><value>ส่งซ้ำด้วย key เดิมจะได้งานเดิม ไม่สร้างใหม่</value></data>
+  <data name="Job.Submit.JobTypeHint" xml:space="preserve"><value>เลือกจากรายการ หรือพิมพ์เอง</value></data>
+  <data name="Job.Submit.PayloadHint" xml:space="preserve"><value>JSON ไม่เกิน 1 MB (ไม่บังคับ)</value></data>
+  <data name="Job.Submit.PayloadInvalid" xml:space="preserve"><value>Payload ไม่ใช่ JSON ที่ถูกต้อง</value></data>
+  <data name="Job.Submit.PriorityHint" xml:space="preserve"><value>0-100 ค่ามากทำก่อน (ค่าเริ่มต้น 50)</value></data>
+  <data name="Job.Submit.QueueFull" xml:space="preserve"><value>{0} กรุณารอให้คิวลดลง หรือติดต่อผู้ดูแลเพื่อปรับเกณฑ์คิว</value></data>
+  <data name="Job.Submit.QueueFullTitle" xml:space="preserve"><value>คิวเต็ม ระบบไม่รับงานใหม่</value></data>
+  <data name="Job.Submit.RunAtHint" xml:space="preserve"><value>ว่าง = รันทันที (เวลาของเครื่องคุณ)</value></data>
+  <data name="Job.Submit.Save" xml:space="preserve"><value>ส่งงาน</value></data>
+  <data name="Job.Submit.Saved" xml:space="preserve"><value>ส่งงาน {0} แล้ว</value></data>
+  <data name="Job.Submit.Saving" xml:space="preserve"><value>กำลังส่งงาน</value></data>
+  <data name="Job.Submit.Section.Job" xml:space="preserve"><value>ข้อมูลงาน</value></data>
+  <data name="Job.Submit.Section.JobHint" xml:space="preserve"><value>ประเภทงานต้องตรงกับ Handler ที่ Worker ลงทะเบียนไว้</value></data>
+  <data name="Job.Submit.Section.Risk" xml:space="preserve"><value>ประเมินความเสี่ยงก่อนส่ง</value></data>
+  <data name="Job.Submit.Section.RiskHint" xml:space="preserve"><value>ประเมินจากข้อมูลที่กรอก ไม่สร้างงาน</value></data>
+  <data name="Job.Submit.Section.Run" xml:space="preserve"><value>การรัน</value></data>
+  <data name="Job.Submit.Section.RunHint" xml:space="preserve"><value>ช่องว่างใช้ค่าเริ่มต้นของระบบ</value></data>
+  <data name="Job.Submit.Section.Target" xml:space="preserve"><value>การจัดสรร</value></data>
+  <data name="Job.Submit.Section.TargetHint" xml:space="preserve"><value>ไม่ระบุ = ให้ระบบเลือก Worker ที่เหมาะสมที่สุด</value></data>
+  <data name="Job.Submit.SensitiveHint" xml:space="preserve"><value>เก็บ Payload แบบเข้ารหัส และส่งให้ Worker ในซองเข้ารหัส</value></data>
+  <data name="Job.Submit.StrictHint" xml:space="preserve"><value>ถ้าเปิด งานจะรอ Worker นี้เท่านั้น</value></data>
+  <data name="Job.Submit.StrictNeedsWorker" xml:space="preserve"><value>ต้องเลือก Worker ก่อนบังคับเฉพาะ Worker</value></data>
+  <data name="Job.Submit.TagsHint" xml:space="preserve"><value>คั่นด้วยจุลภาค ไม่เกิน 10 รายการ</value></data>
+  <data name="Job.Submit.TagsInvalid" xml:space="preserve"><value>Tags ได้ไม่เกิน 10 รายการ และแต่ละรายการไม่เกิน 50 ตัวอักษร</value></data>
+  <data name="Job.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Job.TargetWorker" xml:space="preserve"><value>Worker ที่ต้องการ</value></data>
+  <data name="Job.TimeoutSeconds" xml:space="preserve"><value>Timeout (วินาที)</value></data>
+  <data name="Job.Worker" xml:space="preserve"><value>Worker</value></data>
+  <data name="JobStatus.Assigned" xml:space="preserve"><value>มอบหมายแล้ว</value></data>
+  <data name="JobStatus.CancelRequested" xml:space="preserve"><value>รอหยุดงาน</value></data>
+  <data name="JobStatus.Cancelled" xml:space="preserve"><value>ยกเลิกแล้ว</value></data>
+  <data name="JobStatus.Failed" xml:space="preserve"><value>ล้มเหลว</value></data>
+  <data name="JobStatus.Pending" xml:space="preserve"><value>รอคิว</value></data>
+  <data name="JobStatus.Running" xml:space="preserve"><value>กำลังทำ</value></data>
+  <data name="JobStatus.Succeeded" xml:space="preserve"><value>สำเร็จ</value></data>
+  <data name="Menu.AlertLogs" xml:space="preserve"><value>ประวัติการแจ้งเตือน</value></data>
+  <data name="Menu.AlertsGroup" xml:space="preserve"><value>การแจ้งเตือน</value></data>
+  <data name="Menu.Analysis" xml:space="preserve"><value>วิเคราะห์</value></data>
+  <data name="Menu.Anomalies" xml:space="preserve"><value>ความผิดปกติ (Anomaly)</value></data>
+  <data name="Menu.Dashboard" xml:space="preserve"><value>ภาพรวมระบบ</value></data>
+  <data name="Menu.ImportJobs" xml:space="preserve"><value>ส่ง Job จากไฟล์</value></data>
+  <data name="Menu.JobStatistics" xml:space="preserve"><value>รายงานสถิติ Job</value></data>
+  <data name="Menu.Jobs" xml:space="preserve"><value>รายการ Job</value></data>
+  <data name="Menu.JobsGroup" xml:space="preserve"><value>งาน (Jobs)</value></data>
+  <data name="Menu.Overview" xml:space="preserve"><value>ภาพรวม</value></data>
+  <data name="Menu.Performance" xml:space="preserve"><value>ประสิทธิภาพและคำแนะนำ Worker</value></data>
+  <data name="Menu.Recipients" xml:space="preserve"><value>ผู้รับการแจ้งเตือน</value></data>
+  <data name="Menu.SubmitJob" xml:space="preserve"><value>ส่ง Job ใหม่</value></data>
+  <data name="Menu.Thresholds" xml:space="preserve"><value>เกณฑ์คิว</value></data>
+  <data name="Menu.Workers" xml:space="preserve"><value>รายการ Worker</value></data>
+  <data name="Menu.WorkersGroup" xml:space="preserve"><value>Worker</value></data>
+  <data name="NotFound.PageTitle" xml:space="preserve"><value>ไม่พบหน้าที่ต้องการ</value></data>
+  <data name="Outcome.Cancelled" xml:space="preserve"><value>ยกเลิก</value></data>
+  <data name="Outcome.Failed" xml:space="preserve"><value>ล้มเหลว</value></data>
+  <data name="Outcome.InProgress" xml:space="preserve"><value>กำลังทำ</value></data>
+  <data name="Outcome.Released" xml:space="preserve"><value>คืนงาน</value></data>
+  <data name="Outcome.Succeeded" xml:space="preserve"><value>สำเร็จ</value></data>
+  <data name="Outcome.TimedOut" xml:space="preserve"><value>หมดเวลา</value></data>
+  <data name="Outcome.WorkerLost" xml:space="preserve"><value>Worker หาย</value></data>
+  <data name="Performance.Chart" xml:space="preserve"><value>เวลาเฉลี่ยต่อ Worker</value></data>
+  <data name="Performance.ChartLabel" xml:space="preserve"><value>กราฟแท่งเวลาเฉลี่ยต่อ Worker ข้อมูลเดียวกันอยู่ในตารางด้านล่าง</value></data>
+  <data name="Performance.Description" xml:space="preserve"><value>สิ่งที่ระบบเรียนรู้จากการรันจริง ใช้จัดสรรงานให้ Worker ที่เหมาะที่สุด</value></data>
+  <data name="Performance.Expected" xml:space="preserve"><value>เวลาที่คาด</value></data>
+  <data name="Performance.Failures" xml:space="preserve"><value>ล้มเหลว</value></data>
+  <data name="Performance.JobTypeHint" xml:space="preserve"><value>เลือกประเภทเพื่อดู Worker ที่แนะนำ</value></data>
+  <data name="Performance.Learned" xml:space="preserve"><value>สิ่งที่ระบบเรียนรู้</value></data>
+  <data name="Performance.Load" xml:space="preserve"><value>โหลด</value></data>
+  <data name="Performance.Loading" xml:space="preserve"><value>กำลังโหลดข้อมูลประสิทธิภาพ</value></data>
+  <data name="Performance.Mean" xml:space="preserve"><value>เวลาเฉลี่ย</value></data>
+  <data name="Performance.MeanMs" xml:space="preserve"><value>เวลาเฉลี่ย (ms)</value></data>
+  <data name="Performance.NoRecommendation" xml:space="preserve"><value>ยังไม่มี Worker ที่รับงานประเภทนี้</value></data>
+  <data name="Performance.None" xml:space="preserve"><value>ยังไม่มีข้อมูลประสิทธิภาพ</value></data>
+  <data name="Performance.Reason" xml:space="preserve"><value>เหตุผล</value></data>
+  <data name="Performance.Recommended" xml:space="preserve"><value>Worker ที่แนะนำสำหรับ {0}</value></data>
+  <data name="Performance.Samples" xml:space="preserve"><value>จำนวนตัวอย่าง</value></data>
+  <data name="Performance.Score" xml:space="preserve"><value>คะแนน</value></data>
+  <data name="Performance.StdDev" xml:space="preserve"><value>ส่วนเบี่ยงเบน</value></data>
+  <data name="Performance.StdDevMs" xml:space="preserve"><value>ส่วนเบี่ยงเบน (ms)</value></data>
+  <data name="Performance.SuccessProbability" xml:space="preserve"><value>โอกาสสำเร็จ</value></data>
+  <data name="Performance.SuccessRate" xml:space="preserve"><value>อัตราสำเร็จ (%)</value></data>
+  <data name="Performance.Successes" xml:space="preserve"><value>สำเร็จ</value></data>
+  <data name="Performance.Updated" xml:space="preserve"><value>อัปเดตล่าสุด</value></data>
+  <data name="QueueLevel.NearLimit" xml:space="preserve"><value>ใกล้เต็ม</value></data>
+  <data name="QueueLevel.Normal" xml:space="preserve"><value>ปกติ</value></data>
+  <data name="QueueLevel.OverLimit" xml:space="preserve"><value>เกินเกณฑ์</value></data>
+  <data name="Recipient.Address" xml:space="preserve"><value>ที่อยู่</value></data>
+  <data name="Recipient.AddressHint" xml:space="preserve"><value>เช่น อีเมล หรือเบอร์โทร +66... ตามช่องทาง</value></data>
+  <data name="Recipient.AddressKeepHint" xml:space="preserve"><value>ปัจจุบัน {0} ปล่อยว่างเพื่อใช้ที่อยู่เดิม</value></data>
+  <data name="Recipient.AddressRequired" xml:space="preserve"><value>กรุณากรอกที่อยู่</value></data>
+  <data name="Recipient.Channel" xml:space="preserve"><value>ช่องทาง</value></data>
+  <data name="Recipient.ChannelHint" xml:space="preserve"><value>ช่องทางที่เปิดใน MessageHub เช่น Email, TeamsChat, Line</value></data>
+  <data name="Recipient.Deleted" xml:space="preserve"><value>ลบผู้รับ {0} แล้ว</value></data>
+  <data name="Recipient.EditTitle" xml:space="preserve"><value>แก้ไขผู้รับ {0}</value></data>
+  <data name="Recipient.Events" xml:space="preserve"><value>เหตุการณ์ที่รับ</value></data>
+  <data name="Recipient.EventsRequired" xml:space="preserve"><value>เลือกอย่างน้อย 1 เหตุการณ์</value></data>
+  <data name="Recipient.Form.Description" xml:space="preserve"><value>ผู้รับจะได้แจ้งเตือนเฉพาะเหตุการณ์ที่เลือก และระดับความรุนแรงตั้งแต่ที่กำหนดขึ้นไป</value></data>
+  <data name="Recipient.Form.Section.What" xml:space="preserve"><value>เหตุการณ์ที่แจ้ง</value></data>
+  <data name="Recipient.Form.Section.WhatHint" xml:space="preserve"><value>Worker ลงทะเบียน/ถูกถอด/หาย, เปลี่ยน Primary, คิวใกล้เต็ม/เกิน และความผิดปกติ</value></data>
+  <data name="Recipient.Form.Section.Who" xml:space="preserve"><value>ผู้รับและช่องทาง</value></data>
+  <data name="Recipient.List.Description" xml:space="preserve"><value>ผู้รับแจ้งเตือนผ่าน MessageHub แยกตามเหตุการณ์และระดับความรุนแรง ที่อยู่เก็บแบบเข้ารหัสและแสดงแบบปิดบางส่วน</value></data>
+  <data name="Recipient.MinSeverity" xml:space="preserve"><value>ความรุนแรงขั้นต่ำ</value></data>
+  <data name="Recipient.Name" xml:space="preserve"><value>ชื่อ</value></data>
+  <data name="Recipient.New" xml:space="preserve"><value>เพิ่มผู้รับ</value></data>
+  <data name="Recipient.NoChannels" xml:space="preserve"><value>ไม่พบช่องทางจาก MessageHub</value></data>
+  <data name="Recipient.NoChannelsHint" xml:space="preserve"><value>MessageHub อาจยังไม่ได้ตั้งค่า หรือติดต่อไม่ได้ พิมพ์ชื่อช่องทางเองได้</value></data>
+  <data name="Recipient.NotFound" xml:space="preserve"><value>ไม่พบผู้รับ</value></data>
+  <data name="Recipient.Saved" xml:space="preserve"><value>บันทึกผู้รับ {0} แล้ว</value></data>
+  <data name="Recipient.Test" xml:space="preserve"><value>ทดสอบส่ง</value></data>
+  <data name="Recipient.TestFailed" xml:space="preserve"><value>ส่งทดสอบไม่สำเร็จ ({0}) {1}</value></data>
+  <data name="Recipient.TestSent" xml:space="preserve"><value>ส่งข้อความทดสอบถึง {0} แล้ว</value></data>
+  <data name="Recipient.Testing" xml:space="preserve"><value>กำลังส่งข้อความทดสอบ</value></data>
+  <data name="Recipient.ViewTitle" xml:space="preserve"><value>ผู้รับ {0}</value></data>
+  <data name="Risk.Explanation" xml:space="preserve"><value>คำอธิบาย</value></data>
+  <data name="Risk.Factor" xml:space="preserve"><value>ปัจจัย</value></data>
+  <data name="Risk.Level.Critical" xml:space="preserve"><value>วิกฤต</value></data>
+  <data name="Risk.Level.High" xml:space="preserve"><value>สูง</value></data>
+  <data name="Risk.Level.Low" xml:space="preserve"><value>ต่ำ</value></data>
+  <data name="Risk.Level.Medium" xml:space="preserve"><value>ปานกลาง</value></data>
+  <data name="Risk.LevelScore" xml:space="preserve"><value>ความเสี่ยง {0} ({1}/100)</value></data>
+  <data name="Risk.NoFactors" xml:space="preserve"><value>ไม่พบปัจจัยเสี่ยง</value></data>
+  <data name="Risk.Points" xml:space="preserve"><value>คะแนน</value></data>
+  <data name="SendStatus.Failed" xml:space="preserve"><value>ส่งไม่สำเร็จ</value></data>
+  <data name="SendStatus.Pending" xml:space="preserve"><value>รอส่ง</value></data>
+  <data name="SendStatus.Sent" xml:space="preserve"><value>ส่งแล้ว</value></data>
+  <data name="SendStatus.Skipped" xml:space="preserve"><value>ข้าม</value></data>
+  <data name="Severity.Critical" xml:space="preserve"><value>วิกฤต</value></data>
+  <data name="Severity.Info" xml:space="preserve"><value>ข้อมูล</value></data>
+  <data name="Severity.Warning" xml:space="preserve"><value>เตือน</value></data>
+  <data name="Stats.AvgAttempts" xml:space="preserve"><value>จำนวนครั้งที่รันเฉลี่ย</value></data>
+  <data name="Stats.AvgMs" xml:space="preserve"><value>เวลารันเฉลี่ย (ms)</value></data>
+  <data name="Stats.Cancelled" xml:space="preserve"><value>ยกเลิก</value></data>
+  <data name="Stats.Chart" xml:space="preserve"><value>งานสำเร็จและล้มเหลวรายวัน</value></data>
+  <data name="Stats.ChartLabel" xml:space="preserve"><value>กราฟแท่งงานสำเร็จและล้มเหลวรายวัน ข้อมูลเดียวกันอยู่ในตารางด้านล่าง</value></data>
+  <data name="Stats.Day" xml:space="preserve"><value>วัน</value></data>
+  <data name="Stats.Description" xml:space="preserve"><value>สถิติงานรายวัน (เวลาประเทศไทย) แยกตามประเภทงานและ/หรือ Worker</value></data>
+  <data name="Stats.Failed" xml:space="preserve"><value>ล้มเหลว</value></data>
+  <data name="Stats.Group.day" xml:space="preserve"><value>วัน</value></data>
+  <data name="Stats.Group.jobType" xml:space="preserve"><value>ประเภท Job</value></data>
+  <data name="Stats.Group.worker" xml:space="preserve"><value>Worker</value></data>
+  <data name="Stats.GroupBy" xml:space="preserve"><value>จัดกลุ่มตาม</value></data>
+  <data name="Stats.GroupByHint" xml:space="preserve"><value>เลือกได้มากกว่า 1 แบบ</value></data>
+  <data name="Stats.Loading" xml:space="preserve"><value>กำลังสร้างรายงาน</value></data>
+  <data name="Stats.Note" xml:space="preserve"><value>วันตามเขตเวลา {0} · P95 คำนวณจาก histogram ความละเอียดประมาณ 5% · ข้อมูลเก่ากว่าระยะเก็บข้อมูลถูกลบแล้ว</value></data>
+  <data name="Stats.P95" xml:space="preserve"><value>เวลารัน P95</value></data>
+  <data name="Stats.P95Ms" xml:space="preserve"><value>เวลารัน P95 (ms)</value></data>
+  <data name="Stats.QueueWaitMs" xml:space="preserve"><value>รอคิวเฉลี่ย (ms)</value></data>
+  <data name="Stats.Submitted" xml:space="preserve"><value>ส่งเข้า</value></data>
+  <data name="Stats.Succeeded" xml:space="preserve"><value>สำเร็จ</value></data>
+  <data name="Stats.SuccessRate" xml:space="preserve"><value>อัตราสำเร็จ</value></data>
+  <data name="Stats.SuccessRatePct" xml:space="preserve"><value>อัตราสำเร็จ (%)</value></data>
+  <data name="Stats.Throughput" xml:space="preserve"><value>งานสำเร็จต่อชั่วโมง</value></data>
+  <data name="Threshold.AllTypes" xml:space="preserve"><value>ทุกประเภทรวมกัน (*)</value></data>
+  <data name="Threshold.Conflict" xml:space="preserve"><value>มีเกณฑ์ของประเภทนี้อยู่แล้ว หรือถูกแก้ไขโดยผู้อื่น กรุณาโหลดใหม่</value></data>
+  <data name="Threshold.Deleted" xml:space="preserve"><value>ลบเกณฑ์คิว {0} แล้ว</value></data>
+  <data name="Threshold.EditTitle" xml:space="preserve"><value>แก้ไขเกณฑ์คิว {0}</value></data>
+  <data name="Threshold.Form.Description" xml:space="preserve"><value>กำหนดจำนวนงานรอคิวสูงสุดของประเภทงาน</value></data>
+  <data name="Threshold.Form.How" xml:space="preserve"><value>Job Server หลักตรวจทุก 15 วินาที ถึงเกณฑ์ใกล้เต็มส่งแจ้งเตือน "คิวใกล้เต็ม" ถึงจำนวนสูงสุดส่ง "คิวเกินเกณฑ์" และปฏิเสธงานใหม่ทันที แจ้งซ้ำได้ทุก 30 นาที</value></data>
+  <data name="Threshold.Form.HowTitle" xml:space="preserve"><value>การทำงาน</value></data>
+  <data name="Threshold.Form.Section" xml:space="preserve"><value>เกณฑ์</value></data>
+  <data name="Threshold.JobTypeHint" xml:space="preserve"><value>ประเภท Job หรือ * สำหรับทุกประเภทรวมกัน (แก้ไม่ได้หลังสร้าง)</value></data>
+  <data name="Threshold.Level" xml:space="preserve"><value>ระดับ</value></data>
+  <data name="Threshold.List.Description" xml:space="preserve"><value>ถึงเกณฑ์ใกล้เต็มจะแจ้งเตือน ถึงจำนวนสูงสุดจะแจ้งเตือนและปฏิเสธงานใหม่ของประเภทนั้น (HTTP 429)</value></data>
+  <data name="Threshold.MaxPending" xml:space="preserve"><value>งานรอคิวสูงสุด</value></data>
+  <data name="Threshold.MaxPendingHint" xml:space="preserve"><value>ถึงจำนวนนี้ระบบจะปฏิเสธงานใหม่</value></data>
+  <data name="Threshold.New" xml:space="preserve"><value>เพิ่มเกณฑ์คิว</value></data>
+  <data name="Threshold.NotFound" xml:space="preserve"><value>ไม่พบเกณฑ์คิว</value></data>
+  <data name="Threshold.Pending" xml:space="preserve"><value>รอคิวตอนนี้</value></data>
+  <data name="Threshold.Saved" xml:space="preserve"><value>บันทึกเกณฑ์คิว {0} แล้ว</value></data>
+  <data name="Threshold.Usage" xml:space="preserve"><value>ใช้ไป (%)</value></data>
+  <data name="Threshold.ViewTitle" xml:space="preserve"><value>เกณฑ์คิว {0}</value></data>
+  <data name="Threshold.WarnPercent" xml:space="preserve"><value>แจ้งเตือนใกล้เต็มที่ (%)</value></data>
+  <data name="Threshold.WarnPercentHint" xml:space="preserve"><value>แจ้งเตือนเมื่อรอคิวถึง {0} งาน</value></data>
+  <data name="Validation.JobTypeFormat" xml:space="preserve"><value>ใช้ได้เฉพาะ A-Z a-z 0-9 จุด ขีดกลาง และขีดล่าง และต้องขึ้นต้นด้วยตัวอักษรหรือตัวเลข</value></data>
+  <data name="Validation.Required" xml:space="preserve"><value>กรุณากรอกข้อมูลช่องนี้</value></data>
+  <data name="Worker.Benchmark" xml:space="preserve"><value>Benchmark</value></data>
+  <data name="Worker.Cpu" xml:space="preserve"><value>CPU %</value></data>
+  <data name="Worker.CpuCores" xml:space="preserve"><value>CPU cores</value></data>
+  <data name="Worker.Detail.Description" xml:space="preserve"><value>ข้อมูลเครื่อง ความสามารถ งานที่ถืออยู่ ประสิทธิภาพ และความเสี่ยง</value></data>
+  <data name="Worker.Detail.JobsHint" xml:space="preserve"><value>งานที่ยังไม่จบของ Worker นี้ (สูงสุด 200 รายการ)</value></data>
+  <data name="Worker.Detail.JobsUnavailable" xml:space="preserve"><value>ดูรายการงานไม่ได้ (ต้องมีสิทธิ์ดู Job)</value></data>
+  <data name="Worker.Detail.NoJobs" xml:space="preserve"><value>ไม่มีงานที่ถืออยู่</value></data>
+  <data name="Worker.Detail.Section.Capabilities" xml:space="preserve"><value>ความสามารถ</value></data>
+  <data name="Worker.Detail.Section.Jobs" xml:space="preserve"><value>Job ที่ถืออยู่</value></data>
+  <data name="Worker.Detail.Section.Machine" xml:space="preserve"><value>ข้อมูลเครื่อง</value></data>
+  <data name="Worker.Detail.Section.Performance" xml:space="preserve"><value>ประสิทธิภาพที่เรียนรู้</value></data>
+  <data name="Worker.Detail.Section.Risk" xml:space="preserve"><value>ความเสี่ยง</value></data>
+  <data name="Worker.Detail.Section.Status" xml:space="preserve"><value>สถานะ</value></data>
+  <data name="Worker.Detail.Title" xml:space="preserve"><value>Worker {0}</value></data>
+  <data name="Worker.Detail.TitleLoading" xml:space="preserve"><value>รายละเอียด Worker</value></data>
+  <data name="Worker.Drain" xml:space="preserve"><value>Drain</value></data>
+  <data name="Worker.DrainPage.Confirm" xml:space="preserve"><value>ยืนยัน Drain</value></data>
+  <data name="Worker.DrainPage.Description" xml:space="preserve"><value>หยุดรับงานใหม่ งานที่ทำอยู่ทำต่อจนเสร็จ</value></data>
+  <data name="Worker.DrainPage.Done" xml:space="preserve"><value>สั่ง Drain {0} แล้ว</value></data>
+  <data name="Worker.DrainPage.NotAllowed" xml:space="preserve"><value>สั่ง Drain ไม่ได้</value></data>
+  <data name="Worker.DrainPage.NotAllowedHint" xml:space="preserve"><value>Worker อยู่ในสถานะ {0} (Drain ได้เฉพาะ Worker ที่ออนไลน์)</value></data>
+  <data name="Worker.DrainPage.Saving" xml:space="preserve"><value>กำลังสั่ง Drain</value></data>
+  <data name="Worker.DrainPage.Title" xml:space="preserve"><value>Drain Worker {0}</value></data>
+  <data name="Worker.DrainPage.WhatHappens" xml:space="preserve"><value>ผลของการ Drain</value></data>
+  <data name="Worker.DrainPage.WhatHappensHint" xml:space="preserve"><value>Worker จะไม่ได้รับงานใหม่ งานที่ทำอยู่ {0} งานจะทำต่อจนเสร็จ เหมาะก่อนปิดเครื่องเพื่อบำรุงรักษา</value></data>
+  <data name="Worker.Gpu" xml:space="preserve"><value>GPU</value></data>
+  <data name="Worker.Id" xml:space="preserve"><value>Worker ID</value></data>
+  <data name="Worker.IncludeUnregistered" xml:space="preserve"><value>รวม Worker ที่ถอดออกแล้ว</value></data>
+  <data name="Worker.JobTypes" xml:space="preserve"><value>ประเภท Job ที่รับ</value></data>
+  <data name="Worker.LastHeartbeat" xml:space="preserve"><value>Heartbeat ล่าสุด</value></data>
+  <data name="Worker.List.Description" xml:space="preserve"><value>Worker ลงทะเบียนเองผ่าน SDK เลือกดูรายละเอียด สั่ง Drain หรือถอดออกได้</value></data>
+  <data name="Worker.List.Found" xml:space="preserve"><value>พบ {0:N0} Worker</value></data>
+  <data name="Worker.Load" xml:space="preserve"><value>งาน/ความจุ</value></data>
+  <data name="Worker.MaxConcurrency" xml:space="preserve"><value>งานพร้อมกันสูงสุด</value></data>
+  <data name="Worker.Memory" xml:space="preserve"><value>Memory %</value></data>
+  <data name="Worker.MemoryMb" xml:space="preserve"><value>หน่วยความจำ</value></data>
+  <data name="Worker.Name" xml:space="preserve"><value>ชื่อ</value></data>
+  <data name="Worker.NotFound" xml:space="preserve"><value>ไม่พบ Worker</value></data>
+  <data name="Worker.NotFoundHint" xml:space="preserve"><value>Worker นี้อาจถูกลบไปแล้ว</value></data>
+  <data name="Worker.OfflineCount" xml:space="preserve"><value>ครั้งที่ Offline</value></data>
+  <data name="Worker.Os" xml:space="preserve"><value>ระบบปฏิบัติการ</value></data>
+  <data name="Worker.Pqc" xml:space="preserve"><value>รองรับ PQC</value></data>
+  <data name="Worker.Registered" xml:space="preserve"><value>ลงทะเบียนเมื่อ</value></data>
+  <data name="Worker.SpeedFactor" xml:space="preserve"><value>Speed factor</value></data>
+  <data name="Worker.Status" xml:space="preserve"><value>สถานะ</value></data>
+  <data name="Worker.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Worker.Unregister" xml:space="preserve"><value>ถอดออกจากระบบ</value></data>
+  <data name="Worker.UnregisterPage.Confirm" xml:space="preserve"><value>ยืนยันถอดออก</value></data>
+  <data name="Worker.UnregisterPage.Description" xml:space="preserve"><value>ตรวจสอบข้อมูลก่อนยืนยัน การถอดออกย้อนกลับไม่ได้ (Worker ต้องลงทะเบียนใหม่เอง)</value></data>
+  <data name="Worker.UnregisterPage.Done" xml:space="preserve"><value>ถอด {0} ออกจากระบบแล้ว</value></data>
+  <data name="Worker.UnregisterPage.NotAllowed" xml:space="preserve"><value>ถอดออกไม่ได้</value></data>
+  <data name="Worker.UnregisterPage.NotAllowedHint" xml:space="preserve"><value>Worker อยู่ในสถานะ {0} แล้ว</value></data>
+  <data name="Worker.UnregisterPage.Saving" xml:space="preserve"><value>กำลังถอด Worker</value></data>
+  <data name="Worker.UnregisterPage.Title" xml:space="preserve"><value>ถอด Worker {0} ออกจากระบบ</value></data>
+  <data name="Worker.UnregisterPage.WhatHappens" xml:space="preserve"><value>ผลของการถอดออก</value></data>
+  <data name="Worker.UnregisterPage.WhatHappensHint" xml:space="preserve"><value>งานที่ Worker ถืออยู่ {0} งานจะถูกย้ายไป Worker อื่น และระบบจะส่งแจ้งเตือน "Worker ถูกถอดออก" ผ่าน MessageHub</value></data>
+  <data name="Worker.Version" xml:space="preserve"><value>เวอร์ชัน</value></data>
+  <data name="WorkerStatus.Draining" xml:space="preserve"><value>กำลัง Drain</value></data>
+  <data name="WorkerStatus.Offline" xml:space="preserve"><value>ออฟไลน์</value></data>
+  <data name="WorkerStatus.Online" xml:space="preserve"><value>ออนไลน์</value></data>
+  <data name="WorkerStatus.Unregistered" xml:space="preserve"><value>ถอดออกแล้ว</value></data>
+</root>

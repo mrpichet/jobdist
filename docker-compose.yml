@@ -55,8 +55,23 @@ x-server-env: &server-env
   Alerts__MessageHub__Enabled: ${MESSAGEHUB_ENABLED:-false}
   Alerts__MessageHub__BaseUrl: ${MESSAGEHUB_URL:-}
   Alerts__MessageHub__ApiKey: ${MESSAGEHUB_API_KEY:-}
-  Alerts__MessageHub__Channel: ${MESSAGEHUB_CHANNEL:-Email}
-  Alerts__MessageHub__Recipients__0: ${ADMIN_ALERT_RECIPIENT:-}
+  # Alert recipients are managed in the web console (Alerts > Recipients), not here.
+  # Web console sign-in: AuthServer URL (empty = API keys only, the web console cannot sign in).
+  AuthServer__Authority: ${AUTHSERVER_AUTHORITY:-}
+  # Alert transport: Database (outbox table only) or RabbitMq (start with --profile rabbitmq).
+  Messaging__Transport: ${MESSAGING_TRANSPORT:-Database}
+  Messaging__RabbitMq__HostName: ${RABBITMQ_HOST:-rabbitmq}
+  Messaging__RabbitMq__UserName: ${RABBITMQ_USER:-jobdist}
+  Messaging__RabbitMq__Password: ${RABBITMQ_PASSWORD:-}
+  # Central logging (Common.Logging → LogServer). The API key is read from LOGSERVER_API_KEY.
+  Logging__LogServer__Enabled: ${LOGSERVER_ENABLED:-false}
+  Logging__LogServer__ServerUrls: ${LOGSERVER_URLS:-}
+  LOGSERVER_API_KEY: ${LOGSERVER_API_KEY:-}
+  AgentChat__Enabled: ${AGENTCHAT_ENABLED:-false}
+  AgentChat__Provider: ${AGENTCHAT_PROVIDER:-}
+  AgentChat__Endpoint: ${AGENTCHAT_ENDPOINT:-}
+  AgentChat__Model: ${AGENTCHAT_MODEL:-}
+  AgentChat__ApiKey: ${AGENTCHAT_API_KEY:-}
   OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
   OTEL_EXPORTER_OTLP_PROTOCOL: grpc
   OTEL_EXPORTER_OTLP_HEADERS: x-otlp-api-key=${OTLP_API_KEY:?set OTLP_API_KEY in .env}
@@ -120,6 +135,30 @@ services:
       resources:
         limits: { cpus: "2.0", memory: 512m, pids: 256 }
 
+  rabbitmq:
+    <<: *hardening
+    image: rabbitmq:4-management-alpine
+    profiles: [rabbitmq]
+    read_only: false
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-jobdist}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:15672:15672"   # management UI (localhost only)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512m, pids: 512 }
+
   postgres:
     <<: *hardening
     image: postgres:17-alpine
@@ -171,3 +210,4 @@ networks:
 
 volumes:
   pgdata: {}
+  rabbitdata: {}

@@ -72,6 +72,9 @@ public sealed class JobDistOptions
 
     /// <summary>Re-send unacknowledged worker commands after this many seconds.</summary>
     [Range(1, 3600)] public int CommandRedeliverSeconds { get; set; } = 15;
+
+    /// <summary>Lowest worker SDK version allowed to register, e.g. <c>1.2.0</c>. Empty = no check.</summary>
+    public string? MinWorkerSdkVersion { get; set; }
 }
 
 /// <summary>Relative weights of the worker score components.</summary>

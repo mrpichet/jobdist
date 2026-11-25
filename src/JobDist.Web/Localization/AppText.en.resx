@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AlertEvent.AnomalyDetected" xml:space="preserve"><value>Anomaly detected</value></data>
+  <data name="AlertEvent.LeaderChanged" xml:space="preserve"><value>Primary server changed</value></data>
+  <data name="AlertEvent.QueueNearLimit" xml:space="preserve"><value>Queue near limit</value></data>
+  <data name="AlertEvent.QueueOverLimit" xml:space="preserve"><value>Queue over limit</value></data>
+  <data name="AlertEvent.Test" xml:space="preserve"><value>Test</value></data>
+  <data name="AlertEvent.WorkerLost" xml:space="preserve"><value>Worker lost</value></data>
+  <data name="AlertEvent.WorkerRegistered" xml:space="preserve"><value>Worker registered</value></data>
+  <data name="AlertEvent.WorkerUnregistered" xml:space="preserve"><value>Worker unregistered</value></data>
+  <data name="AlertLog.Attempts" xml:space="preserve"><value>Attempts</value></data>
+  <data name="AlertLog.CorrelationId" xml:space="preserve"><value>MessageHub message id</value></data>
+  <data name="AlertLog.Created" xml:space="preserve"><value>Time</value></data>
+  <data name="AlertLog.Description" xml:space="preserve"><value>Each alert delivery to each recipient through MessageHub, with the result and attempts.</value></data>
+  <data name="AlertLog.Error" xml:space="preserve"><value>Error</value></data>
+  <data name="AlertLog.Event" xml:space="preserve"><value>Event</value></data>
+  <data name="AlertLog.Found" xml:space="preserve"><value>Showing {0:N0} of {1:N0}</value></data>
+  <data name="AlertLog.Loading" xml:space="preserve"><value>Loading alert history</value></data>
+  <data name="AlertLog.Recipient" xml:space="preserve"><value>Recipient</value></data>
+  <data name="AlertLog.Sent" xml:space="preserve"><value>Sent at</value></data>
+  <data name="AlertLog.Status" xml:space="preserve"><value>Result</value></data>
+  <data name="AlertLog.SuccessRate" xml:space="preserve"><value>Delivery rate {0}</value></data>
+  <data name="AlertLog.Title" xml:space="preserve"><value>Title</value></data>
+  <data name="Anomaly.Description" xml:space="preserve"><value>Anomalies detected in the chosen window.</value></data>
+  <data name="Anomaly.DetectedAt" xml:space="preserve"><value>Detected</value></data>
+  <data name="Anomaly.Expected" xml:space="preserve"><value>Expected</value></data>
+  <data name="Anomaly.Kind" xml:space="preserve"><value>Kind</value></data>
+  <data name="Anomaly.Loading" xml:space="preserve"><value>Detecting anomalies</value></data>
+  <data name="Anomaly.None" xml:space="preserve"><value>No anomalies</value></data>
+  <data name="Anomaly.NoneHint" xml:space="preserve"><value>Try a longer window.</value></data>
+  <data name="Anomaly.Observed" xml:space="preserve"><value>Observed</value></data>
+  <data name="Anomaly.Score" xml:space="preserve"><value>Score</value></data>
+  <data name="Anomaly.SendAlert" xml:space="preserve"><value>Send alert now</value></data>
+  <data name="Anomaly.Sent" xml:space="preserve"><value>{0} anomalies sent through MessageHub</value></data>
+  <data name="Anomaly.Severity" xml:space="preserve"><value>Severity</value></data>
+  <data name="Anomaly.Subject" xml:space="preserve"><value>Subject</value></data>
+  <data name="Anomaly.Window" xml:space="preserve"><value>Window (minutes)</value></data>
+  <data name="Anomaly.WindowHint" xml:space="preserve"><value>5-1,440 minutes</value></data>
+  <data name="Anomaly.WindowSummary" xml:space="preserve"><value>Last {0} minutes</value></data>
+  <data name="AnomalyKind.FailoverStorm" xml:space="preserve"><value>Failover storm</value></data>
+  <data name="AnomalyKind.HighFailureRate" xml:space="preserve"><value>High failure rate</value></data>
+  <data name="AnomalyKind.QueueStarvation" xml:space="preserve"><value>Queue starvation</value></data>
+  <data name="AnomalyKind.SlowExecution" xml:space="preserve"><value>Slow execution</value></data>
+  <data name="AnomalyKind.SubmissionSpike" xml:space="preserve"><value>Submission spike</value></data>
+  <data name="AnomalyKind.SuspiciousWorkerActivity" xml:space="preserve"><value>Suspicious worker activity</value></data>
+  <data name="AnomalyKind.WorkerFlapping" xml:space="preserve"><value>Worker flapping</value></data>
+  <data name="App.CheckingAccess" xml:space="preserve"><value>Checking access...</value></data>
+  <data name="Attempt.Assigned" xml:space="preserve"><value>Assigned</value></data>
+  <data name="Attempt.Finished" xml:space="preserve"><value>Finished</value></data>
+  <data name="Attempt.Outcome" xml:space="preserve"><value>Outcome</value></data>
+  <data name="Attempt.QueueWait" xml:space="preserve"><value>Queue wait</value></data>
+  <data name="Attempt.Score" xml:space="preserve"><value>Scheduler score</value></data>
+  <data name="Common.All" xml:space="preserve"><value>All</value></data>
+  <data name="Common.AllData" xml:space="preserve"><value>All records</value></data>
+  <data name="Common.Conflict" xml:space="preserve"><value>Someone else changed this record. Reload and try again.</value></data>
+  <data name="Common.Count" xml:space="preserve"><value>Count</value></data>
+  <data name="Common.DateRangeError" xml:space="preserve"><value>The start date must not be after the end date.</value></data>
+  <data name="Common.Deleting" xml:space="preserve"><value>Deleting</value></data>
+  <data name="Common.Disabled" xml:space="preserve"><value>Disabled</value></data>
+  <data name="Common.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Common.From" xml:space="preserve"><value>From</value></data>
+  <data name="Common.LoadFailed" xml:space="preserve"><value>Could not load data</value></data>
+  <data name="Common.NetworkError" xml:space="preserve"><value>Cannot reach the server. Check your connection and try again.</value></data>
+  <data name="Common.No" xml:space="preserve"><value>No</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Common.Saving" xml:space="preserve"><value>Saving</value></data>
+  <data name="Common.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Common.To" xml:space="preserve"><value>To</value></data>
+  <data name="Common.Updated" xml:space="preserve"><value>Last updated</value></data>
+  <data name="Common.UpdatedBy" xml:space="preserve"><value>Updated by</value></data>
+  <data name="Common.UpdatedByAt" xml:space="preserve"><value>Last updated by {0} at {1}</value></data>
+  <data name="Common.ViewAll" xml:space="preserve"><value>View all</value></data>
+  <data name="Common.Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Dashboard.ActiveJobs" xml:space="preserve"><value>Active jobs</value></data>
+  <data name="Dashboard.AutoRefresh" xml:space="preserve"><value>Auto refresh</value></data>
+  <data name="Dashboard.Capacity" xml:space="preserve"><value>Total capacity (concurrent jobs)</value></data>
+  <data name="Dashboard.Description" xml:space="preserve"><value>Workers, running jobs, queues and the latest anomalies across the cluster.</value></data>
+  <data name="Dashboard.GeneratedAt" xml:space="preserve"><value>Data as of</value></data>
+  <data name="Dashboard.JobsByStatus" xml:space="preserve"><value>Jobs by status</value></data>
+  <data name="Dashboard.Leader" xml:space="preserve"><value>Primary job server</value></data>
+  <data name="Dashboard.LeaderInstance" xml:space="preserve"><value>Primary instance</value></data>
+  <data name="Dashboard.NoLeader" xml:space="preserve"><value>No primary yet</value></data>
+  <data name="Dashboard.NoPending" xml:space="preserve"><value>No pending jobs</value></data>
+  <data name="Dashboard.NoThresholds" xml:space="preserve"><value>No queue thresholds yet</value></data>
+  <data name="Dashboard.PendingByType" xml:space="preserve"><value>Pending jobs by type</value></data>
+  <data name="Dashboard.PendingJobs" xml:space="preserve"><value>Pending jobs</value></data>
+  <data name="Dashboard.QueueUsage" xml:space="preserve"><value>Queue usage against thresholds</value></data>
+  <data name="Dashboard.QueueUsageHint" xml:space="preserve"><value>Near the limit an alert is sent; at 100% an alert is sent and new jobs of that type are rejected.</value></data>
+  <data name="Dashboard.RecentAnomalies" xml:space="preserve"><value>Recent anomalies (15 minutes)</value></data>
+  <data name="Dashboard.RefreshEvery" xml:space="preserve"><value>Every {0} s</value></data>
+  <data name="Dashboard.RefreshOff" xml:space="preserve"><value>Off</value></data>
+  <data name="Dashboard.ThisInstance" xml:space="preserve"><value>This instance is primary</value></data>
+  <data name="Dashboard.Updated" xml:space="preserve"><value>Dashboard updated at {0}</value></data>
+  <data name="Dashboard.WorkersDraining" xml:space="preserve"><value>Workers draining</value></data>
+  <data name="Dashboard.WorkersOffline" xml:space="preserve"><value>Workers offline</value></data>
+  <data name="Dashboard.WorkersOnline" xml:space="preserve"><value>Workers online</value></data>
+  <data name="Error.PageTitle" xml:space="preserve"><value>Error {0}</value></data>
+  <data name="Import.Choose" xml:space="preserve"><value>Choose file</value></data>
+  <data name="Import.Col.IdempotencyKey" xml:space="preserve"><value>Idempotency key</value></data>
+  <data name="Import.Col.JobType" xml:space="preserve"><value>Job type</value></data>
+  <data name="Import.Col.MaxAttempts" xml:space="preserve"><value>Max attempts</value></data>
+  <data name="Import.Col.Payload" xml:space="preserve"><value>Payload (JSON)</value></data>
+  <data name="Import.Col.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Import.Col.RunAt" xml:space="preserve"><value>Run at</value></data>
+  <data name="Import.Col.Sensitive" xml:space="preserve"><value>Sensitive</value></data>
+  <data name="Import.Col.StrictTarget" xml:space="preserve"><value>Strict target</value></data>
+  <data name="Import.Col.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Import.Col.TargetWorkerId" xml:space="preserve"><value>Target worker id</value></data>
+  <data name="Import.Col.TimeoutSeconds" xml:space="preserve"><value>Timeout (seconds)</value></data>
+  <data name="Import.Column" xml:space="preserve"><value>Column</value></data>
+  <data name="Import.Description" xml:space="preserve"><value>Submit many jobs at once from an Excel (.xlsx) or CSV file, up to 5,000 rows.</value></data>
+  <data name="Import.DialogDescription" xml:space="preserve"><value>The file needs a header row; Thai or English column names both work.</value></data>
+  <data name="Import.DoneHint" xml:space="preserve"><value>See the submitted jobs in the job list.</value></data>
+  <data name="Import.Duplicate" xml:space="preserve"><value>Already existed</value></data>
+  <data name="Import.DuplicatesSkipped" xml:space="preserve"><value>{0:N0} rows were existing jobs (not created again)</value></data>
+  <data name="Import.Hint.IdempotencyKey" xml:space="preserve"><value>Unique in the file, empty = generated</value></data>
+  <data name="Import.Hint.JobType" xml:space="preserve"><value>Matches a worker handler, e.g. image.resize</value></data>
+  <data name="Import.Hint.MaxAttempts" xml:space="preserve"><value>1-20, empty = default</value></data>
+  <data name="Import.Hint.Payload" xml:space="preserve"><value>JSON up to 1 MB</value></data>
+  <data name="Import.Hint.Priority" xml:space="preserve"><value>0-100, empty = 50</value></data>
+  <data name="Import.Hint.RunAt" xml:space="preserve"><value>yyyy-MM-dd HH:mm in your local time, empty = now</value></data>
+  <data name="Import.Hint.Sensitive" xml:space="preserve"><value>true = encrypt the payload</value></data>
+  <data name="Import.Hint.StrictTarget" xml:space="preserve"><value>true = wait for this worker only</value></data>
+  <data name="Import.Hint.Tags" xml:space="preserve"><value>Comma separated, up to 10</value></data>
+  <data name="Import.Hint.TargetWorkerId" xml:space="preserve"><value>Worker GUID, empty = any worker</value></data>
+  <data name="Import.Hint.TimeoutSeconds" xml:space="preserve"><value>1-86,400, empty = default</value></data>
+  <data name="Import.HowTitle" xml:space="preserve"><value>Steps</value></data>
+  <data name="Import.Invalid.Bool" xml:space="preserve"><value>Must be true/false or yes/no</value></data>
+  <data name="Import.Invalid.Date" xml:space="preserve"><value>Date must be yyyy-MM-dd HH:mm or dd/MM/yyyy HH:mm</value></data>
+  <data name="Import.Invalid.Guid" xml:space="preserve"><value>Must be a worker id (GUID)</value></data>
+  <data name="Import.Invalid.Number" xml:space="preserve"><value>Must be a whole number</value></data>
+  <data name="Import.Meaning" xml:space="preserve"><value>Meaning</value></data>
+  <data name="Import.MoreRows" xml:space="preserve"><value>and {0:N0} more</value></data>
+  <data name="Import.Required" xml:space="preserve"><value>Required</value></data>
+  <data name="Import.ResultSummary" xml:space="preserve"><value>{0:N0} created · {1:N0} already existed</value></data>
+  <data name="Import.ResultTitle" xml:space="preserve"><value>Last import</value></data>
+  <data name="Import.Saving" xml:space="preserve"><value>Submitting {0:N0} jobs</value></data>
+  <data name="Import.Step1" xml:space="preserve"><value>Press "Choose file" and download the template.</value></data>
+  <data name="Import.Step2" xml:space="preserve"><value>Fill one row per job using the columns below.</value></data>
+  <data name="Import.Step3" xml:space="preserve"><value>Upload the file; every row is checked and errors are listed.</value></data>
+  <data name="Import.Step4" xml:space="preserve"><value>Confirm. All jobs are sent in one request (one bad row rejects the file). Importing the same file again does not create duplicates.</value></data>
+  <data name="Job.Attempt" xml:space="preserve"><value>Attempt/max</value></data>
+  <data name="Job.Cancel" xml:space="preserve"><value>Cancel job</value></data>
+  <data name="Job.CancelPage.Confirm" xml:space="preserve"><value>Confirm cancel</value></data>
+  <data name="Job.CancelPage.Description" xml:space="preserve"><value>Check the job before confirming. Cancelling cannot be undone.</value></data>
+  <data name="Job.CancelPage.Done" xml:space="preserve"><value>Job cancelled</value></data>
+  <data name="Job.CancelPage.NotAllowed" xml:space="preserve"><value>Cannot cancel</value></data>
+  <data name="Job.CancelPage.NotAllowedHint" xml:space="preserve"><value>The job is already {0}.</value></data>
+  <data name="Job.CancelPage.ReasonHint" xml:space="preserve"><value>Optional, up to 500 characters (sent to the worker and kept in history).</value></data>
+  <data name="Job.CancelPage.Requested" xml:space="preserve"><value>Stop request sent to the worker; the job becomes Cancelled when it stops.</value></data>
+  <data name="Job.CancelPage.RunningHint" xml:space="preserve"><value>The worker is told to stop; the status stays "Cancel requested" until it does.</value></data>
+  <data name="Job.CancelPage.RunningTitle" xml:space="preserve"><value>A worker is running this job</value></data>
+  <data name="Job.CancelPage.Saving" xml:space="preserve"><value>Cancelling</value></data>
+  <data name="Job.CancelPage.Title" xml:space="preserve"><value>Cancel job {0}</value></data>
+  <data name="Job.CancelReason" xml:space="preserve"><value>Cancel reason</value></data>
+  <data name="Job.Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Job.Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Job.Detail.AttemptsHint" xml:space="preserve"><value>Each assignment, including moves to another worker.</value></data>
+  <data name="Job.Detail.Description" xml:space="preserve"><value>Status, data, result, attempt history and risk.</value></data>
+  <data name="Job.Detail.NoAttempts" xml:space="preserve"><value>Not assigned yet.</value></data>
+  <data name="Job.Detail.NoResult" xml:space="preserve"><value>No result yet.</value></data>
+  <data name="Job.Detail.Section.Attempts" xml:space="preserve"><value>Attempt history</value></data>
+  <data name="Job.Detail.Section.Data" xml:space="preserve"><value>Job data</value></data>
+  <data name="Job.Detail.Section.Result" xml:space="preserve"><value>Result</value></data>
+  <data name="Job.Detail.Section.Risk" xml:space="preserve"><value>Risk</value></data>
+  <data name="Job.Detail.Section.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Job.Detail.SensitiveHidden" xml:space="preserve"><value>Yes (payload hidden)</value></data>
+  <data name="Job.Detail.Title" xml:space="preserve"><value>Job {0}</value></data>
+  <data name="Job.Duration" xml:space="preserve"><value>Duration</value></data>
+  <data name="Job.Id" xml:space="preserve"><value>Job ID</value></data>
+  <data name="Job.IdempotencyKey" xml:space="preserve"><value>Idempotency key</value></data>
+  <data name="Job.JobType" xml:space="preserve"><value>Job type</value></data>
+  <data name="Job.LastError" xml:space="preserve"><value>Last error</value></data>
+  <data name="Job.List.Description" xml:space="preserve"><value>Search and track jobs, newest first.</value></data>
+  <data name="Job.List.Found" xml:space="preserve"><value>Showing {0:N0} of {1:N0} jobs</value></data>
+  <data name="Job.List.Loading" xml:space="preserve"><value>Searching jobs</value></data>
+  <data name="Job.List.MaxRows" xml:space="preserve"><value>Max rows</value></data>
+  <data name="Job.MaxAttempts" xml:space="preserve"><value>Max attempts</value></data>
+  <data name="Job.NotFound" xml:space="preserve"><value>Job not found</value></data>
+  <data name="Job.NotFoundHint" xml:space="preserve"><value>The job may have been removed by the retention policy.</value></data>
+  <data name="Job.Payload" xml:space="preserve"><value>Payload (JSON)</value></data>
+  <data name="Job.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Job.Priority.Description" xml:space="preserve"><value>Only the priority can change, and only before the job finishes.</value></data>
+  <data name="Job.Priority.Final" xml:space="preserve"><value>This job has finished</value></data>
+  <data name="Job.Priority.FinalHint" xml:space="preserve"><value>The priority can no longer change.</value></data>
+  <data name="Job.Priority.New" xml:space="preserve"><value>New priority</value></data>
+  <data name="Job.Priority.Saved" xml:space="preserve"><value>Priority changed to {0}</value></data>
+  <data name="Job.Priority.Title" xml:space="preserve"><value>Change priority of job {0}</value></data>
+  <data name="Job.Result" xml:space="preserve"><value>Result</value></data>
+  <data name="Job.RunAt" xml:space="preserve"><value>Run at</value></data>
+  <data name="Job.Sensitive" xml:space="preserve"><value>Sensitive (encrypt payload)</value></data>
+  <data name="Job.Started" xml:space="preserve"><value>Started</value></data>
+  <data name="Job.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Job.StrictTarget" xml:space="preserve"><value>Only this worker</value></data>
+  <data name="Job.Submit.AnyWorker" xml:space="preserve"><value>Any worker</value></data>
+  <data name="Job.Submit.Assess" xml:space="preserve"><value>Assess risk</value></data>
+  <data name="Job.Submit.DefaultHint" xml:space="preserve"><value>Empty = server default.</value></data>
+  <data name="Job.Submit.Description" xml:space="preserve"><value>Enter the job; the scheduler picks the best worker unless you choose one.</value></data>
+  <data name="Job.Submit.Duplicate" xml:space="preserve"><value>The job already exists (same idempotency key): {0}</value></data>
+  <data name="Job.Submit.IdempotencyHint" xml:space="preserve"><value>Submitting again with the same key returns the first job.</value></data>
+  <data name="Job.Submit.JobTypeHint" xml:space="preserve"><value>Pick from the list or type it.</value></data>
+  <data name="Job.Submit.PayloadHint" xml:space="preserve"><value>JSON up to 1 MB (optional).</value></data>
+  <data name="Job.Submit.PayloadInvalid" xml:space="preserve"><value>The payload is not valid JSON.</value></data>
+  <data name="Job.Submit.PriorityHint" xml:space="preserve"><value>0-100, higher runs first (default 50).</value></data>
+  <data name="Job.Submit.QueueFull" xml:space="preserve"><value>{0} Wait for the queue to drain, or ask an administrator to raise the queue threshold.</value></data>
+  <data name="Job.Submit.QueueFullTitle" xml:space="preserve"><value>Queue full: new jobs are rejected</value></data>
+  <data name="Job.Submit.RunAtHint" xml:space="preserve"><value>Empty = run now (your local time).</value></data>
+  <data name="Job.Submit.Save" xml:space="preserve"><value>Submit</value></data>
+  <data name="Job.Submit.Saved" xml:space="preserve"><value>Job {0} submitted</value></data>
+  <data name="Job.Submit.Saving" xml:space="preserve"><value>Submitting</value></data>
+  <data name="Job.Submit.Section.Job" xml:space="preserve"><value>Job</value></data>
+  <data name="Job.Submit.Section.JobHint" xml:space="preserve"><value>The job type must match a handler registered by a worker.</value></data>
+  <data name="Job.Submit.Section.Risk" xml:space="preserve"><value>Risk check before submitting</value></data>
+  <data name="Job.Submit.Section.RiskHint" xml:space="preserve"><value>Assesses the values above; creates nothing.</value></data>
+  <data name="Job.Submit.Section.Run" xml:space="preserve"><value>Execution</value></data>
+  <data name="Job.Submit.Section.RunHint" xml:space="preserve"><value>Empty fields use the server defaults.</value></data>
+  <data name="Job.Submit.Section.Target" xml:space="preserve"><value>Assignment</value></data>
+  <data name="Job.Submit.Section.TargetHint" xml:space="preserve"><value>Leave empty to let the scheduler choose.</value></data>
+  <data name="Job.Submit.SensitiveHint" xml:space="preserve"><value>Payload is stored encrypted and sent to the worker in an encrypted envelope.</value></data>
+  <data name="Job.Submit.StrictHint" xml:space="preserve"><value>When on, the job waits for this worker only.</value></data>
+  <data name="Job.Submit.StrictNeedsWorker" xml:space="preserve"><value>Choose a worker before restricting the job to it.</value></data>
+  <data name="Job.Submit.TagsHint" xml:space="preserve"><value>Comma separated, up to 10.</value></data>
+  <data name="Job.Submit.TagsInvalid" xml:space="preserve"><value>Up to 10 tags of at most 50 characters.</value></data>
+  <data name="Job.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Job.TargetWorker" xml:space="preserve"><value>Preferred worker</value></data>
+  <data name="Job.TimeoutSeconds" xml:space="preserve"><value>Timeout (seconds)</value></data>
+  <data name="Job.Worker" xml:space="preserve"><value>Worker</value></data>
+  <data name="JobStatus.Assigned" xml:space="preserve"><value>Assigned</value></data>
+  <data name="JobStatus.CancelRequested" xml:space="preserve"><value>Cancel requested</value></data>
+  <data name="JobStatus.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="JobStatus.Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="JobStatus.Pending" xml:space="preserve"><value>Pending</value></data>
+  <data name="JobStatus.Running" xml:space="preserve"><value>Running</value></data>
+  <data name="JobStatus.Succeeded" xml:space="preserve"><value>Succeeded</value></data>
+  <data name="Menu.AlertLogs" xml:space="preserve"><value>Alert history</value></data>
+  <data name="Menu.AlertsGroup" xml:space="preserve"><value>Alerts</value></data>
+  <data name="Menu.Analysis" xml:space="preserve"><value>Analysis</value></data>
+  <data name="Menu.Anomalies" xml:space="preserve"><value>Anomalies</value></data>
+  <data name="Menu.Dashboard" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Menu.ImportJobs" xml:space="preserve"><value>Import jobs from file</value></data>
+  <data name="Menu.JobStatistics" xml:space="preserve"><value>Job statistics report</value></data>
+  <data name="Menu.Jobs" xml:space="preserve"><value>Jobs</value></data>
+  <data name="Menu.JobsGroup" xml:space="preserve"><value>Jobs</value></data>
+  <data name="Menu.Overview" xml:space="preserve"><value>Overview</value></data>
+  <data name="Menu.Performance" xml:space="preserve"><value>Performance and recommendations</value></data>
+  <data name="Menu.Recipients" xml:space="preserve"><value>Alert recipients</value></data>
+  <data name="Menu.SubmitJob" xml:space="preserve"><value>Submit job</value></data>
+  <data name="Menu.Thresholds" xml:space="preserve"><value>Queue thresholds</value></data>
+  <data name="Menu.Workers" xml:space="preserve"><value>Workers</value></data>
+  <data name="Menu.WorkersGroup" xml:space="preserve"><value>Workers</value></data>
+  <data name="NotFound.PageTitle" xml:space="preserve"><value>Page not found</value></data>
+  <data name="Outcome.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Outcome.Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="Outcome.InProgress" xml:space="preserve"><value>In progress</value></data>
+  <data name="Outcome.Released" xml:space="preserve"><value>Released</value></data>
+  <data name="Outcome.Succeeded" xml:space="preserve"><value>Succeeded</value></data>
+  <data name="Outcome.TimedOut" xml:space="preserve"><value>Timed out</value></data>
+  <data name="Outcome.WorkerLost" xml:space="preserve"><value>Worker lost</value></data>
+  <data name="Performance.Chart" xml:space="preserve"><value>Average time per worker</value></data>
+  <data name="Performance.ChartLabel" xml:space="preserve"><value>Bar chart of average time per worker; the same data is in the table below.</value></data>
+  <data name="Performance.Description" xml:space="preserve"><value>What the scheduler learned from real runs, used to pick the best worker.</value></data>
+  <data name="Performance.Expected" xml:space="preserve"><value>Expected time</value></data>
+  <data name="Performance.Failures" xml:space="preserve"><value>Failures</value></data>
+  <data name="Performance.JobTypeHint" xml:space="preserve"><value>Choose a type to see recommended workers.</value></data>
+  <data name="Performance.Learned" xml:space="preserve"><value>Learned statistics</value></data>
+  <data name="Performance.Load" xml:space="preserve"><value>Load</value></data>
+  <data name="Performance.Loading" xml:space="preserve"><value>Loading performance</value></data>
+  <data name="Performance.Mean" xml:space="preserve"><value>Mean time</value></data>
+  <data name="Performance.MeanMs" xml:space="preserve"><value>Mean (ms)</value></data>
+  <data name="Performance.NoRecommendation" xml:space="preserve"><value>No worker accepts this job type yet.</value></data>
+  <data name="Performance.None" xml:space="preserve"><value>No performance data yet.</value></data>
+  <data name="Performance.Reason" xml:space="preserve"><value>Reason</value></data>
+  <data name="Performance.Recommended" xml:space="preserve"><value>Recommended workers for {0}</value></data>
+  <data name="Performance.Samples" xml:space="preserve"><value>Samples</value></data>
+  <data name="Performance.Score" xml:space="preserve"><value>Score</value></data>
+  <data name="Performance.StdDev" xml:space="preserve"><value>Std. deviation</value></data>
+  <data name="Performance.StdDevMs" xml:space="preserve"><value>Std. deviation (ms)</value></data>
+  <data name="Performance.SuccessProbability" xml:space="preserve"><value>Success probability</value></data>
+  <data name="Performance.SuccessRate" xml:space="preserve"><value>Success rate (%)</value></data>
+  <data name="Performance.Successes" xml:space="preserve"><value>Successes</value></data>
+  <data name="Performance.Updated" xml:space="preserve"><value>Last updated</value></data>
+  <data name="QueueLevel.NearLimit" xml:space="preserve"><value>Near limit</value></data>
+  <data name="QueueLevel.Normal" xml:space="preserve"><value>Normal</value></data>
+  <data name="QueueLevel.OverLimit" xml:space="preserve"><value>Over limit</value></data>
+  <data name="Recipient.Address" xml:space="preserve"><value>Address</value></data>
+  <data name="Recipient.AddressHint" xml:space="preserve"><value>e.g. e-mail, or phone +66... depending on the channel.</value></data>
+  <data name="Recipient.AddressKeepHint" xml:space="preserve"><value>Current: {0}. Leave empty to keep it.</value></data>
+  <data name="Recipient.AddressRequired" xml:space="preserve"><value>Enter the address.</value></data>
+  <data name="Recipient.Channel" xml:space="preserve"><value>Channel</value></data>
+  <data name="Recipient.ChannelHint" xml:space="preserve"><value>A channel enabled in MessageHub, e.g. Email, TeamsChat, Line.</value></data>
+  <data name="Recipient.Deleted" xml:space="preserve"><value>Recipient {0} deleted</value></data>
+  <data name="Recipient.EditTitle" xml:space="preserve"><value>Edit recipient {0}</value></data>
+  <data name="Recipient.Events" xml:space="preserve"><value>Events</value></data>
+  <data name="Recipient.EventsRequired" xml:space="preserve"><value>Choose at least one event.</value></data>
+  <data name="Recipient.Form.Description" xml:space="preserve"><value>The recipient gets the chosen events at or above the minimum severity.</value></data>
+  <data name="Recipient.Form.Section.What" xml:space="preserve"><value>What to send</value></data>
+  <data name="Recipient.Form.Section.WhatHint" xml:space="preserve"><value>Worker registered/unregistered/lost, primary change, queue near/over limit and anomalies.</value></data>
+  <data name="Recipient.Form.Section.Who" xml:space="preserve"><value>Recipient and channel</value></data>
+  <data name="Recipient.List.Description" xml:space="preserve"><value>Who receives alerts through MessageHub, by event and severity. Addresses are stored encrypted and shown masked.</value></data>
+  <data name="Recipient.MinSeverity" xml:space="preserve"><value>Minimum severity</value></data>
+  <data name="Recipient.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Recipient.New" xml:space="preserve"><value>New recipient</value></data>
+  <data name="Recipient.NoChannels" xml:space="preserve"><value>No channels from MessageHub</value></data>
+  <data name="Recipient.NoChannelsHint" xml:space="preserve"><value>MessageHub may not be configured or reachable; you can type the channel name.</value></data>
+  <data name="Recipient.NotFound" xml:space="preserve"><value>Recipient not found</value></data>
+  <data name="Recipient.Saved" xml:space="preserve"><value>Recipient {0} saved</value></data>
+  <data name="Recipient.Test" xml:space="preserve"><value>Send test</value></data>
+  <data name="Recipient.TestFailed" xml:space="preserve"><value>Test not sent ({0}) {1}</value></data>
+  <data name="Recipient.TestSent" xml:space="preserve"><value>Test message sent to {0}</value></data>
+  <data name="Recipient.Testing" xml:space="preserve"><value>Sending test</value></data>
+  <data name="Recipient.ViewTitle" xml:space="preserve"><value>Recipient {0}</value></data>
+  <data name="Risk.Explanation" xml:space="preserve"><value>Explanation</value></data>
+  <data name="Risk.Factor" xml:space="preserve"><value>Factor</value></data>
+  <data name="Risk.Level.Critical" xml:space="preserve"><value>Critical</value></data>
+  <data name="Risk.Level.High" xml:space="preserve"><value>High</value></data>
+  <data name="Risk.Level.Low" xml:space="preserve"><value>Low</value></data>
+  <data name="Risk.Level.Medium" xml:space="preserve"><value>Medium</value></data>
+  <data name="Risk.LevelScore" xml:space="preserve"><value>Risk {0} ({1}/100)</value></data>
+  <data name="Risk.NoFactors" xml:space="preserve"><value>No risk factors found.</value></data>
+  <data name="Risk.Points" xml:space="preserve"><value>Points</value></data>
+  <data name="SendStatus.Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="SendStatus.Pending" xml:space="preserve"><value>Pending</value></data>
+  <data name="SendStatus.Sent" xml:space="preserve"><value>Sent</value></data>
+  <data name="SendStatus.Skipped" xml:space="preserve"><value>Skipped</value></data>
+  <data name="Severity.Critical" xml:space="preserve"><value>Critical</value></data>
+  <data name="Severity.Info" xml:space="preserve"><value>Info</value></data>
+  <data name="Severity.Warning" xml:space="preserve"><value>Warning</value></data>
+  <data name="Stats.AvgAttempts" xml:space="preserve"><value>Avg. attempts</value></data>
+  <data name="Stats.AvgMs" xml:space="preserve"><value>Avg. run time (ms)</value></data>
+  <data name="Stats.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Stats.Chart" xml:space="preserve"><value>Succeeded and failed per day</value></data>
+  <data name="Stats.ChartLabel" xml:space="preserve"><value>Bar chart of succeeded and failed jobs per day; the same data is in the table below.</value></data>
+  <data name="Stats.Day" xml:space="preserve"><value>Day</value></data>
+  <data name="Stats.Description" xml:space="preserve"><value>Daily job statistics (Thailand time) by job type and/or worker.</value></data>
+  <data name="Stats.Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="Stats.Group.day" xml:space="preserve"><value>Day</value></data>
+  <data name="Stats.Group.jobType" xml:space="preserve"><value>Job type</value></data>
+  <data name="Stats.Group.worker" xml:space="preserve"><value>Worker</value></data>
+  <data name="Stats.GroupBy" xml:space="preserve"><value>Group by</value></data>
+  <data name="Stats.GroupByHint" xml:space="preserve"><value>Choose one or more</value></data>
+  <data name="Stats.Loading" xml:space="preserve"><value>Building report</value></data>
+  <data name="Stats.Note" xml:space="preserve"><value>Days in {0} · P95 from a histogram with about 5% resolution · data older than the retention period has been removed.</value></data>
+  <data name="Stats.P95" xml:space="preserve"><value>P95 run time</value></data>
+  <data name="Stats.P95Ms" xml:space="preserve"><value>P95 run time (ms)</value></data>
+  <data name="Stats.QueueWaitMs" xml:space="preserve"><value>Avg. queue wait (ms)</value></data>
+  <data name="Stats.Submitted" xml:space="preserve"><value>Submitted</value></data>
+  <data name="Stats.Succeeded" xml:space="preserve"><value>Succeeded</value></data>
+  <data name="Stats.SuccessRate" xml:space="preserve"><value>Success rate</value></data>
+  <data name="Stats.SuccessRatePct" xml:space="preserve"><value>Success rate (%)</value></data>
+  <data name="Stats.Throughput" xml:space="preserve"><value>Succeeded per hour</value></data>
+  <data name="Threshold.AllTypes" xml:space="preserve"><value>All types combined (*)</value></data>
+  <data name="Threshold.Conflict" xml:space="preserve"><value>This job type already has a threshold, or someone else changed it. Reload and try again.</value></data>
+  <data name="Threshold.Deleted" xml:space="preserve"><value>Threshold {0} deleted</value></data>
+  <data name="Threshold.EditTitle" xml:space="preserve"><value>Edit threshold {0}</value></data>
+  <data name="Threshold.Form.Description" xml:space="preserve"><value>Set the maximum pending jobs for a job type.</value></data>
+  <data name="Threshold.Form.How" xml:space="preserve"><value>The primary server checks every 15 seconds. Near the limit it sends "Queue near limit"; at the maximum it sends "Queue over limit" and rejects new jobs at once. Alerts repeat at most every 30 minutes.</value></data>
+  <data name="Threshold.Form.HowTitle" xml:space="preserve"><value>How it works</value></data>
+  <data name="Threshold.Form.Section" xml:space="preserve"><value>Threshold</value></data>
+  <data name="Threshold.JobTypeHint" xml:space="preserve"><value>A job type, or * for all types combined (cannot change later).</value></data>
+  <data name="Threshold.Level" xml:space="preserve"><value>Level</value></data>
+  <data name="Threshold.List.Description" xml:space="preserve"><value>Near the limit an alert is sent; at the maximum an alert is sent and new jobs of that type are rejected (HTTP 429).</value></data>
+  <data name="Threshold.MaxPending" xml:space="preserve"><value>Max pending</value></data>
+  <data name="Threshold.MaxPendingHint" xml:space="preserve"><value>New jobs are rejected at this number.</value></data>
+  <data name="Threshold.New" xml:space="preserve"><value>New threshold</value></data>
+  <data name="Threshold.NotFound" xml:space="preserve"><value>Threshold not found</value></data>
+  <data name="Threshold.Pending" xml:space="preserve"><value>Pending now</value></data>
+  <data name="Threshold.Saved" xml:space="preserve"><value>Threshold {0} saved</value></data>
+  <data name="Threshold.Usage" xml:space="preserve"><value>Usage (%)</value></data>
+  <data name="Threshold.ViewTitle" xml:space="preserve"><value>Threshold {0}</value></data>
+  <data name="Threshold.WarnPercent" xml:space="preserve"><value>Warn at (%)</value></data>
+  <data name="Threshold.WarnPercentHint" xml:space="preserve"><value>Alert when {0} jobs are pending.</value></data>
+  <data name="Validation.JobTypeFormat" xml:space="preserve"><value>Use letters, digits, dot, dash or underscore, starting with a letter or digit.</value></data>
+  <data name="Validation.Required" xml:space="preserve"><value>This field is required.</value></data>
+  <data name="Worker.Benchmark" xml:space="preserve"><value>Benchmark</value></data>
+  <data name="Worker.Cpu" xml:space="preserve"><value>CPU %</value></data>
+  <data name="Worker.CpuCores" xml:space="preserve"><value>CPU cores</value></data>
+  <data name="Worker.Detail.Description" xml:space="preserve"><value>Machine, capabilities, held jobs, performance and risk.</value></data>
+  <data name="Worker.Detail.JobsHint" xml:space="preserve"><value>Unfinished jobs of this worker (up to 200).</value></data>
+  <data name="Worker.Detail.JobsUnavailable" xml:space="preserve"><value>Jobs are not available (needs job view permission).</value></data>
+  <data name="Worker.Detail.NoJobs" xml:space="preserve"><value>No jobs held.</value></data>
+  <data name="Worker.Detail.Section.Capabilities" xml:space="preserve"><value>Capabilities</value></data>
+  <data name="Worker.Detail.Section.Jobs" xml:space="preserve"><value>Held jobs</value></data>
+  <data name="Worker.Detail.Section.Machine" xml:space="preserve"><value>Machine</value></data>
+  <data name="Worker.Detail.Section.Performance" xml:space="preserve"><value>Learned performance</value></data>
+  <data name="Worker.Detail.Section.Risk" xml:space="preserve"><value>Risk</value></data>
+  <data name="Worker.Detail.Section.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Worker.Detail.Title" xml:space="preserve"><value>Worker {0}</value></data>
+  <data name="Worker.Detail.TitleLoading" xml:space="preserve"><value>Worker detail</value></data>
+  <data name="Worker.Drain" xml:space="preserve"><value>Drain</value></data>
+  <data name="Worker.DrainPage.Confirm" xml:space="preserve"><value>Confirm drain</value></data>
+  <data name="Worker.DrainPage.Description" xml:space="preserve"><value>Stop new jobs; running jobs finish.</value></data>
+  <data name="Worker.DrainPage.Done" xml:space="preserve"><value>{0} is draining</value></data>
+  <data name="Worker.DrainPage.NotAllowed" xml:space="preserve"><value>Cannot drain</value></data>
+  <data name="Worker.DrainPage.NotAllowedHint" xml:space="preserve"><value>The worker is {0}; only online workers can be drained.</value></data>
+  <data name="Worker.DrainPage.Saving" xml:space="preserve"><value>Draining</value></data>
+  <data name="Worker.DrainPage.Title" xml:space="preserve"><value>Drain worker {0}</value></data>
+  <data name="Worker.DrainPage.WhatHappens" xml:space="preserve"><value>What drain does</value></data>
+  <data name="Worker.DrainPage.WhatHappensHint" xml:space="preserve"><value>The worker gets no new jobs; its {0} running jobs finish. Use it before maintenance.</value></data>
+  <data name="Worker.Gpu" xml:space="preserve"><value>GPU</value></data>
+  <data name="Worker.Id" xml:space="preserve"><value>Worker ID</value></data>
+  <data name="Worker.IncludeUnregistered" xml:space="preserve"><value>Include unregistered</value></data>
+  <data name="Worker.JobTypes" xml:space="preserve"><value>Job types</value></data>
+  <data name="Worker.LastHeartbeat" xml:space="preserve"><value>Last heartbeat</value></data>
+  <data name="Worker.List.Description" xml:space="preserve"><value>Workers register through the SDK. View, drain or unregister them here.</value></data>
+  <data name="Worker.List.Found" xml:space="preserve"><value>{0:N0} workers</value></data>
+  <data name="Worker.Load" xml:space="preserve"><value>Jobs/capacity</value></data>
+  <data name="Worker.MaxConcurrency" xml:space="preserve"><value>Max concurrency</value></data>
+  <data name="Worker.Memory" xml:space="preserve"><value>Memory %</value></data>
+  <data name="Worker.MemoryMb" xml:space="preserve"><value>Memory</value></data>
+  <data name="Worker.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Worker.NotFound" xml:space="preserve"><value>Worker not found</value></data>
+  <data name="Worker.NotFoundHint" xml:space="preserve"><value>The worker may have been removed.</value></data>
+  <data name="Worker.OfflineCount" xml:space="preserve"><value>Times offline</value></data>
+  <data name="Worker.Os" xml:space="preserve"><value>OS</value></data>
+  <data name="Worker.Pqc" xml:space="preserve"><value>PQC</value></data>
+  <data name="Worker.Registered" xml:space="preserve"><value>Registered</value></data>
+  <data name="Worker.SpeedFactor" xml:space="preserve"><value>Speed factor</value></data>
+  <data name="Worker.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Worker.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Worker.Unregister" xml:space="preserve"><value>Unregister</value></data>
+  <data name="Worker.UnregisterPage.Confirm" xml:space="preserve"><value>Confirm unregister</value></data>
+  <data name="Worker.UnregisterPage.Description" xml:space="preserve"><value>Check before confirming. This cannot be undone (the worker must register again).</value></data>
+  <data name="Worker.UnregisterPage.Done" xml:space="preserve"><value>{0} unregistered</value></data>
+  <data name="Worker.UnregisterPage.NotAllowed" xml:space="preserve"><value>Cannot unregister</value></data>
+  <data name="Worker.UnregisterPage.NotAllowedHint" xml:space="preserve"><value>The worker is already {0}.</value></data>
+  <data name="Worker.UnregisterPage.Saving" xml:space="preserve"><value>Unregistering</value></data>
+  <data name="Worker.UnregisterPage.Title" xml:space="preserve"><value>Unregister worker {0}</value></data>
+  <data name="Worker.UnregisterPage.WhatHappens" xml:space="preserve"><value>What unregister does</value></data>
+  <data name="Worker.UnregisterPage.WhatHappensHint" xml:space="preserve"><value>Its {0} held jobs move to other workers and a "Worker unregistered" alert is sent through MessageHub.</value></data>
+  <data name="Worker.Version" xml:space="preserve"><value>Version</value></data>
+  <data name="WorkerStatus.Draining" xml:space="preserve"><value>Draining</value></data>
+  <data name="WorkerStatus.Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="WorkerStatus.Online" xml:space="preserve"><value>Online</value></data>
+  <data name="WorkerStatus.Unregistered" xml:space="preserve"><value>Unregistered</value></data>
+</root>

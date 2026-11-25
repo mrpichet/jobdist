@@ -7,10 +7,13 @@ JobDist is a distributed job scheduler. The same business logic is served as a *
 
 ## Authentication
 
-- Every call: header `X-Api-Key: <key>`. Keys map to roles **Admin, Submitter, Viewer, Worker, AiAgent** (only SHA-256 hashes are stored server-side).
+- Machines (workers, SDK, MCP, scripts): header `X-Api-Key: <key>`. Keys map to roles **Admin, Submitter, Viewer, Worker, AiAgent** (only SHA-256 hashes are stored server-side).
+- People (web console): `Authorization: Bearer <access token>` from AuthServer (Application `jobdist`); access needs the `jobdist.*` permission shown in the Auth column, or the AuthServer admin role.
+- Auth column "permission `p` / API key S": a Bearer token passes with permission `p`, an API key passes with a role of set S (Read = Viewer/Submitter/Admin, Submit = Submitter/Admin, Admin, WorkerOrAdmin, ConsoleRead = Admin in Production else Viewer/Submitter/Admin, ConsoleWrite = Admin, None = no API key).
+- Versioning: routes are `api/v1/...`; the unversioned `api/...` alias is the same v1 endpoint (header `api-version` or `?api-version=1.0` also accepted).
+- POST endpoints marked idempotent accept `Idempotency-Key` (1-100 chars): a retry with the same body replays the first response (header `Idempotent-Replayed: true`), a different body gets 422.
 - Worker calls (`/api/workers/{workerId}/...`): also `X-Worker-Token: <token>` returned once by `POST /api/workers/register`.
-- Enums are serialized as strings (e.g. `"Pending"`). Times are ISO-8601 UTC. Errors are RFC 7807 problem details.
-- Policies: Read = Viewer/Submitter/Admin, Submit = Submitter/Admin, Admin = Admin, Worker = Worker, AiAgent = AiAgent/Admin.
+- Enums are serialized as strings (e.g. `"Pending"`). Times are ISO-8601 UTC. Errors are RFC 7807 problem details; 429 with `error: queue_full` and `Retry-After` when a queue threshold is exceeded.
 
 ## REST endpoints
 
@@ -18,46 +21,91 @@ JobDist is a distributed job scheduler. The same business logic is served as a *
 
 | Verb | Route | Auth | Body / params | Returns | Description |
 |---|---|---|---|---|---|
-| GET | `/api/admin/summary` | policy:Read |  | ClusterSummaryDTO | Cluster summary (workers, capacity, jobs by status, pending per type, HA leader). |
-| GET | `/api/admin/performance` | policy:Read | `jobType` (query): string | IReadOnlyList<PerformanceStatDTO> | What the ML model learned (per worker and job type). |
-| GET | `/api/admin/recommendations` | policy:Read | `jobType` (query): string<br>`top` (query): int | IReadOnlyList<WorkerRecommendationDTO> | Workers ranked for a job type with explanations. |
-| GET | `/api/admin/anomalies` | policy:Read | `windowMinutes` (query): int | AnomalyReportDTO | Runs anomaly detection now. |
-| POST | `/api/admin/anomalies/alert` | policy:Admin | `windowMinutes` (query): int | IReadOnlyList<AnomalyDTO> | Runs anomaly detection and sends an alert to admins through MessageHub immediately (ignores cooldown). |
+| GET | `/api/v1/admin/summary` | permission `jobdist.dashboard.view` / API key Read |  | ClusterSummaryDTO | Cluster summary (workers, capacity, jobs by status, pending per type, HA leader). |
+| GET | `/api/v1/admin/performance` | permission `jobdist.insight.view` / API key Read | `jobType` (query): string | IReadOnlyList<PerformanceStatDTO> | What the ML model learned (per worker and job type). |
+| GET | `/api/v1/admin/recommendations` | permission `jobdist.insight.view` / API key Read | `jobType` (query): string<br>`top` (query): int | IReadOnlyList<WorkerRecommendationDTO> | Workers ranked for a job type with explanations. |
+| GET | `/api/v1/admin/anomalies` | permission `jobdist.insight.view` / API key Read | `windowMinutes` (query): int | AnomalyReportDTO | Runs anomaly detection now. |
+| POST | `/api/v1/admin/anomalies/alert` | permission `jobdist.alert.send` / API key Admin | `windowMinutes` (query): int | IReadOnlyList<AnomalyDTO> | Runs anomaly detection and sends an alert to admins through MessageHub immediately (ignores cooldown). |
+
+### AgentChat
+
+| Verb | Route | Auth | Body / params | Returns | Description |
+|---|---|---|---|---|---|
+| GET | `/api/v1/agent/status` | anonymous |  | AgentStatusResponse | Whether an AI provider is configured (anonymous: the web console reads it before sign-in to show or hide the assistant). |
+| POST | `/api/v1/agent/chat` | permission `jobdist.agent.use` / API key None | `request` (body): AgentChatRequest | AgentChatResponse | Answers a chat with read-only JobDist tools filtered by the caller's permissions (503 when not configured). |
+
+### AlertRecipients
+
+| Verb | Route | Auth | Body / params | Returns | Description |
+|---|---|---|---|---|---|
+| GET | `/api/v1/alerts/recipients` | permission `jobdist.alert.view` / API key ConsoleRead |  | IReadOnlyList<AlertRecipientResponse> | All recipients (addresses masked). |
+| GET | `/api/v1/alerts/recipients/{id:guid}` | permission `jobdist.alert.view` / API key ConsoleRead | `id` (route): Guid | AlertRecipientResponse | One recipient. |
+| POST | `/api/v1/alerts/recipients` | permission `jobdist.alert.manage` / API key ConsoleWrite | `request` (body): AlertRecipientRequest | AlertRecipientResponse | Creates a recipient (send header `Idempotency-Key` so a retry does not create a second one). |
+| PUT | `/api/v1/alerts/recipients/{id:guid}` | permission `jobdist.alert.manage` / API key ConsoleWrite | `id` (route): Guid<br>`request` (body): AlertRecipientRequest | AlertRecipientResponse | Updates a recipient; `version` is required (409 when someone else saved first). Empty address keeps the stored one. |
+| DELETE | `/api/v1/alerts/recipients/{id:guid}` | permission `jobdist.alert.manage` / API key ConsoleWrite | `id` (route): Guid<br>`version` (query): long | status / JSON | Deletes a recipient. |
+| POST | `/api/v1/alerts/recipients/{id:guid}/test` | permission `jobdist.alert.manage` / API key ConsoleWrite | `id` (route): Guid | AlertSendResultResponse | Sends a test message to the recipient now. |
+| GET | `/api/v1/alerts/channels` | permission `jobdist.alert.view` / API key ConsoleRead |  | IReadOnlyList<string> | Channels enabled on MessageHub (empty when MessageHub is not configured). |
+| GET | `/api/v1/alerts/event-types` | permission `jobdist.alert.view` / API key ConsoleRead |  | IReadOnlyList<string> | Alert event types. |
+| GET | `/api/v1/alerts/logs` | permission `jobdist.alert.view` / API key ConsoleRead | `fromUtc` (query): DateTimeOffset?<br>`toUtc` (query): DateTimeOffset?<br>`eventType` (query): AlertEventType?<br>`status` (query): AlertSendStatus?<br>`recipientId` (query): Guid?<br>`skip` (query): int<br>`take` (query): int | PagedResponse<AlertLogResponse> | Alert history (X1), newest first. |
+
+### ClientLogs
+
+| Verb | Route | Auth | Body / params | Returns | Description |
+|---|---|---|---|---|---|
+| POST | `/api/v1/client-logs` | authenticated | `request` (body): ClientLogBatchRequest | status / JSON | Accepts 1-50 entries; the server adds user id, client IP and user agent itself. |
 
 ### Jobs
 
 | Verb | Route | Auth | Body / params | Returns | Description |
 |---|---|---|---|---|---|
-| POST | `/api/jobs` | policy:Submit | `request` (body): SubmitJobRequest | SubmitJobResponse | Submits a job. |
-| POST | `/api/jobs/batch` | policy:Submit | `request` (body): SubmitJobBatchRequest | IReadOnlyList<SubmitJobResponse> | Submits up to 5,000 jobs in one request (bulk insert). |
-| GET | `/api/jobs/{jobId:guid}` | policy:Read | `jobId` (route): Guid | JobStatusResponse | Gets the status of a job. |
-| GET | `/api/jobs` | policy:Read | `status` (query): JobStatus?<br>`jobType` (query): string<br>`workerId` (query): Guid?<br>`skip` (query): int<br>`take` (query): int | PagedResponse<JobStatusResponse> | Lists jobs (newest first). |
-| GET | `/api/jobs/{jobId:guid}/attempts` | policy:Read | `jobId` (route): Guid | IReadOnlyList<JobAttemptResponse> | Distribution history (attempts, workers, timings). |
-| PATCH | `/api/jobs/{jobId:guid}/priority` | policy:Submit | `jobId` (route): Guid<br>`request` (body): ChangePriorityRequest | JobStatusResponse | Changes the priority of an unfinished job. |
-| POST | `/api/jobs/{jobId:guid}/cancel` | policy:Submit | `jobId` (route): Guid<br>`request` (body): CancelJobRequest | JobStatusResponse | Cancels a job. If a worker holds it, the server sends that worker a signed cancel command (status CancelRequested → Cancelled). |
-| GET | `/api/jobs/{jobId:guid}/risk` | policy:Read | `jobId` (route): Guid | RiskAssessmentDTO | Risk (0-100) that the job fails / is delayed, with explained factors. |
-| GET | `/api/jobs/risk` | policy:Read | `jobType` (query): string<br>`targetWorkerId` (query): Guid?<br>`strictTarget` (query): bool<br>`timeoutSeconds` (query): int?<br>`sensitive` (query): bool | RiskAssessmentDTO | What-if risk of submitting a job type (nothing is created). |
+| POST | `/api/v1/jobs` | permission `jobdist.job.create` / API key Submit | `request` (body): SubmitJobRequest | SubmitJobResponse | Submits a job. |
+| POST | `/api/v1/jobs/batch` | permission `jobdist.job.create` / API key Submit | `request` (body): SubmitJobBatchRequest | IReadOnlyList<SubmitJobResponse> | Submits up to 5,000 jobs in one request (bulk insert). |
+| GET | `/api/v1/jobs/{jobId:guid}` | permission `jobdist.job.view` / API key Read | `jobId` (route): Guid | JobStatusResponse | Gets the status of a job. |
+| GET | `/api/v1/jobs` | permission `jobdist.job.view` / API key Read | `status` (query): JobStatus?<br>`jobType` (query): string<br>`workerId` (query): Guid?<br>`skip` (query): int<br>`take` (query): int | PagedResponse<JobStatusResponse> | Lists jobs (newest first). |
+| GET | `/api/v1/jobs/{jobId:guid}/attempts` | permission `jobdist.job.view` / API key Read | `jobId` (route): Guid | IReadOnlyList<JobAttemptResponse> | Distribution history (attempts, workers, timings). |
+| PATCH | `/api/v1/jobs/{jobId:guid}/priority` | permission `jobdist.job.edit` / API key Submit | `jobId` (route): Guid<br>`request` (body): ChangePriorityRequest | JobStatusResponse | Changes the priority of an unfinished job. |
+| POST | `/api/v1/jobs/{jobId:guid}/cancel` | permission `jobdist.job.cancel` / API key Submit | `jobId` (route): Guid<br>`request` (body): CancelJobRequest | JobStatusResponse | Cancels a job. If a worker holds it, the server sends that worker a signed cancel command (status CancelRequested → Cancelled). |
+| GET | `/api/v1/jobs/{jobId:guid}/risk` | permission `jobdist.job.view` / API key Read | `jobId` (route): Guid | RiskAssessmentDTO | Risk (0-100) that the job fails / is delayed, with explained factors. |
+| GET | `/api/v1/jobs/risk` | permission `jobdist.job.create or jobdist.job.view` / API key Read | `jobType` (query): string<br>`targetWorkerId` (query): Guid?<br>`strictTarget` (query): bool<br>`timeoutSeconds` (query): int?<br>`sensitive` (query): bool | RiskAssessmentDTO | What-if risk of submitting a job type (nothing is created). |
+| GET | `/api/v1/jobs/types` | permission `jobdist.job.view` / API key Read |  | IReadOnlyList<JobTypeInfoResponse> | Job types registered by online workers or waiting in the queue (for pickers). |
 
 ### Keys
 
 | Verb | Route | Auth | Body / params | Returns | Description |
 |---|---|---|---|---|---|
-| GET | `/api/keys` | anonymous |  | ServerKeysResponse | ML-DSA-65 + ECDSA-P384 public keys. |
+| GET | `/api/v1/keys` | anonymous |  | ServerKeysResponse | ML-DSA-65 + ECDSA-P384 public keys. |
+
+### QueueThresholds
+
+| Verb | Route | Auth | Body / params | Returns | Description |
+|---|---|---|---|---|---|
+| GET | `/api/v1/alerts/queue-thresholds` | permission `jobdist.alert.view` / API key ConsoleRead |  | IReadOnlyList<QueueThresholdResponse> | All thresholds. |
+| GET | `/api/v1/alerts/queue-thresholds/{id:guid}` | permission `jobdist.alert.view` / API key ConsoleRead | `id` (route): Guid | QueueThresholdResponse | One threshold. |
+| POST | `/api/v1/alerts/queue-thresholds` | permission `jobdist.queue.manage` / API key ConsoleWrite | `request` (body): QueueThresholdRequest | QueueThresholdResponse | Creates a threshold (409 when the job type already has one). |
+| PUT | `/api/v1/alerts/queue-thresholds/{id:guid}` | permission `jobdist.queue.manage` / API key ConsoleWrite | `id` (route): Guid<br>`request` (body): QueueThresholdRequest | QueueThresholdResponse | Updates a threshold (`version` required). |
+| DELETE | `/api/v1/alerts/queue-thresholds/{id:guid}` | permission `jobdist.queue.manage` / API key ConsoleWrite | `id` (route): Guid<br>`version` (query): long | status / JSON | Deletes a threshold. |
+| GET | `/api/v1/alerts/queue-status` | permission `jobdist.dashboard.view` / API key ConsoleRead |  | IReadOnlyList<QueueStatusResponse> | Current pending jobs against every threshold (dashboard). |
+
+### Reports
+
+| Verb | Route | Auth | Body / params | Returns | Description |
+|---|---|---|---|---|---|
+| GET | `/api/v1/reports/job-statistics` | permission `jobdist.report.view` / API key ConsoleRead | `fromDate` (query): DateOnly<br>`toDate` (query): DateOnly<br>`jobType` (query): string<br>`workerId` (query): Guid?<br>`groupBy` (query): string<br>`timeZone` (query): string | JobStatisticsReportResponse | Job statistics by day (in timeZone), job type and/or worker. |
 
 ### Workers
 
 | Verb | Route | Auth | Body / params | Returns | Description |
 |---|---|---|---|---|---|
-| POST | `/api/workers/register` | policy:Worker | `request` (body): RegisterWorkerRequest | RegisterWorkerResponse | Registers (or re-registers) a worker and returns its secret token and the server's signing keys. |
-| DELETE | `/api/workers/{workerId:guid}` | roles:Worker,Admin | `workerId` (route): Guid | status / JSON | Unregisters a worker (graceful shutdown); jobs it holds are re-distributed immediately. |
-| POST | `/api/workers/{workerId:guid}/heartbeat` | policy:Worker | `workerId` (route): Guid<br>`request` (body): HeartbeatRequest | HeartbeatResponse | Heartbeat with load figures; returns pending signed commands (cancel / drain). |
-| POST | `/api/workers/{workerId:guid}/poll` | policy:Worker | `workerId` (route): Guid<br>`request` (body): PollRequest | PollResponse | Long-poll for signed job assignments (returns early when work arrives). |
-| POST | `/api/workers/{workerId:guid}/jobs/{jobId:guid}/started` | policy:Worker | `workerId` (route): Guid<br>`jobId` (route): Guid<br>`request` (body): JobStartedRequest | status / JSON | Reports that an attempt started. Response `cancelRequested=true` means stop immediately. |
-| POST | `/api/workers/{workerId:guid}/jobs/{jobId:guid}/completed` | policy:Worker | `workerId` (route): Guid<br>`jobId` (route): Guid<br>`request` (body): JobCompletedRequest | JobStatusResponse | Reports the end of an attempt; 409 when the job was already re-distributed (the worker drops the result). |
-| GET | `/api/workers` | policy:Read | `includeUnregistered` (query): bool | IReadOnlyList<WorkerResponse> | Lists workers. |
-| GET | `/api/workers/{workerId:guid}` | policy:Read | `workerId` (route): Guid | WorkerResponse | Gets a worker. |
-| POST | `/api/workers/{workerId:guid}/drain` | policy:Admin | `workerId` (route): Guid | status / JSON | Drains a worker (no new jobs, current ones finish). |
-| GET | `/api/workers/{workerId:guid}/risk` | policy:Read | `workerId` (route): Guid | RiskAssessmentDTO | Health risk of a worker. |
+| POST | `/api/v1/workers/register` | policy:Worker | `request` (body): RegisterWorkerRequest | RegisterWorkerResponse | Registers (or re-registers) a worker and returns its secret token and the server's signing keys. |
+| DELETE | `/api/v1/workers/{workerId:guid}` | permission `jobdist.worker.unregister` / API key WorkerOrAdmin | `workerId` (route): Guid | status / JSON | Unregisters a worker (graceful shutdown); jobs it holds are re-distributed immediately. |
+| POST | `/api/v1/workers/{workerId:guid}/heartbeat` | policy:Worker | `workerId` (route): Guid<br>`request` (body): HeartbeatRequest | HeartbeatResponse | Heartbeat with load figures; returns pending signed commands (cancel / drain). |
+| POST | `/api/v1/workers/{workerId:guid}/poll` | policy:Worker | `workerId` (route): Guid<br>`request` (body): PollRequest | PollResponse | Long-poll for signed job assignments (returns early when work arrives). |
+| POST | `/api/v1/workers/{workerId:guid}/jobs/{jobId:guid}/started` | policy:Worker | `workerId` (route): Guid<br>`jobId` (route): Guid<br>`request` (body): JobStartedRequest | status / JSON | Reports that an attempt started. Response `cancelRequested=true` means stop immediately. |
+| POST | `/api/v1/workers/{workerId:guid}/jobs/{jobId:guid}/completed` | policy:Worker | `workerId` (route): Guid<br>`jobId` (route): Guid<br>`request` (body): JobCompletedRequest | JobStatusResponse | Reports the end of an attempt; 409 when the job was already re-distributed (the worker drops the result). |
+| GET | `/api/v1/workers` | permission `jobdist.worker.view` / API key Read | `includeUnregistered` (query): bool | IReadOnlyList<WorkerResponse> | Lists workers. |
+| GET | `/api/v1/workers/{workerId:guid}` | permission `jobdist.worker.view` / API key Read | `workerId` (route): Guid | WorkerResponse | Gets a worker. |
+| POST | `/api/v1/workers/{workerId:guid}/drain` | permission `jobdist.worker.drain` / API key Admin | `workerId` (route): Guid | status / JSON | Drains a worker (no new jobs, current ones finish). |
+| GET | `/api/v1/workers/{workerId:guid}/risk` | permission `jobdist.worker.view` / API key Read | `workerId` (route): Guid | RiskAssessmentDTO | Health risk of a worker. |
 
 ### Mcp
 
@@ -164,6 +212,30 @@ Get what the ML model learned about worker performance per job type: samples, su
 |---|---|---|---|
 | `jobType` | ["string","null"] | no | Optional job type filter. |
 
+### `get_queue_status`
+
+Get pending jobs compared with the configured queue thresholds: pending, limit, usage percent and level (Normal, NearLimit, OverLimit). Over the limit, new jobs of that type are rejected.
+
+### `list_alert_logs`
+
+List alerts sent to administrators through MessageHub in the last hours: event type, severity, title, recipient (masked address) and delivery status.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `hours` | integer | no | Look back this many hours (1-720). |
+| `eventType` | ["string","null"] | no | Optional event type: AnomalyDetected, WorkerRegistered, WorkerUnregistered, WorkerLost, LeaderChanged, QueueNearLimit, QueueOverLimit, Test. |
+
+### `get_job_statistics`
+
+Job statistics per day (Asia/Bangkok), job type or worker: submitted, succeeded, failed, cancelled, success rate, average attempts, average and P95 duration, average queue wait, throughput per hour. Dates are yyyy-MM-dd; range at most the retention period (30 days).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `fromDate` | string | yes | First day, yyyy-MM-dd. |
+| `toDate` | string | yes | Last day, yyyy-MM-dd. |
+| `jobType` | ["string","null"] | no | Optional job type filter. |
+| `groupBy` | string | no | Grouping: day, jobType, worker or a comma-separated combination. |
+
 ### `submit_job` (side effect)
 
 Submit a new job. Only available when the operator enabled side-effect tools. Use assess_submission_risk first.
@@ -197,6 +269,106 @@ Change the priority (0-100) of a job that has not finished. Only available when 
 
 ## Contracts (JobDist.Contracts)
 
+### `AgentChatMessage` (record)
+
+One chat message (same shape as WebCommon.UI `BackendChatClient`).
+
+| Member | Type | Description |
+|---|---|---|
+| `Role` | string |  |
+| `Content` | string |  |
+
+### `AgentChatRequest` (record)
+
+Chat request from the web console.
+
+| Member | Type | Description |
+|---|---|---|
+| `Messages` | IReadOnlyList<AgentChatMessage> |  |
+| `Language` | string |  |
+| `Page` | string |  |
+
+### `AgentChatResponse` (record)
+
+Chat reply.
+
+| Member | Type | Description |
+|---|---|---|
+| `Reply` | string |  |
+
+### `AgentStatusResponse` (record)
+
+Whether the AI assistant is configured.
+
+| Member | Type | Description |
+|---|---|---|
+| `Enabled` | bool |  |
+
+### `AlertLogResponse` (record)
+
+One alert delivery (one row of the outbox).
+
+| Member | Type | Description |
+|---|---|---|
+| `AlertLogId` | long |  |
+| `CreatedUtc` | DateTimeOffset |  |
+| `EventType` | AlertEventType |  |
+| `Severity` | AlertSeverity |  |
+| `Title` | string |  |
+| `Subject` | string |  |
+| `RecipientId` | Guid? |  |
+| `RecipientName` | string |  |
+| `Channel` | string |  |
+| `AddressMasked` | string |  |
+| `Status` | AlertSendStatus |  |
+| `Attempts` | int |  |
+| `SentUtc` | DateTimeOffset? |  |
+| `CorrelationId` | string |  |
+| `Error` | string |  |
+| `InstanceId` | string |  |
+
+### `AlertRecipientRequest` (record)
+
+Create or update an alert recipient.
+
+| Member | Type | Description |
+|---|---|---|
+| `Name` | string | Display name. |
+| `Channel` | string | MessageHub channel name, e.g. `Email`, `TeamsChat`, `Line`. |
+| `Address` | string | Address for the channel. On update, empty keeps the stored address. |
+| `EventTypes` | IReadOnlyList<AlertEventType> | Events this recipient receives (at least one). |
+| `MinSeverity` | AlertSeverity | Lowest severity this recipient receives. |
+| `Enabled` | bool | Receive alerts. |
+| `Version` | long? | Required on update: the version that was read (optimistic concurrency). |
+
+### `AlertRecipientResponse` (record)
+
+Alert recipient as returned by the API. The address is never returned in full.
+
+| Member | Type | Description |
+|---|---|---|
+| `RecipientId` | Guid |  |
+| `Name` | string |  |
+| `Channel` | string |  |
+| `AddressMasked` | string |  |
+| `EventTypes` | IReadOnlyList<AlertEventType> |  |
+| `MinSeverity` | AlertSeverity |  |
+| `Enabled` | bool |  |
+| `CreatedUtc` | DateTimeOffset |  |
+| `UpdatedUtc` | DateTimeOffset |  |
+| `UpdatedBy` | string |  |
+| `Version` | long |  |
+
+### `AlertSendResultResponse` (record)
+
+Result of sending one message through MessageHub.
+
+| Member | Type | Description |
+|---|---|---|
+| `Status` | AlertSendStatus | Sent, Failed or Skipped. |
+| `CorrelationId` | string | MessageHub message id when sent. |
+| `Error` | string | Short error text when not sent. |
+
 ### `CancelJobRequest` (record)
 
 Cancel a job.
@@ -212,6 +384,29 @@ Change the priority of a job that has not finished.
 | Member | Type | Description |
 |---|---|---|
 | `Priority` | int | 0 - 100. |
+
+### `ClientLogBatchRequest` (record)
+
+Batch of browser log entries.
+
+| Member | Type | Description |
+|---|---|---|
+| `Entries` | IReadOnlyList<ClientLogEntry> |  |
+
+### `ClientLogEntry` (record)
+
+Log entry written in the browser.
+
+| Member | Type | Description |
+|---|---|---|
+| `EntryId` | Guid |  |
+| `TimestampUtc` | DateTimeOffset |  |
+| `Level` | string |  |
+| `Category` | string |  |
+| `Message` | string |  |
+| `Page` | string |  |
+| `Exception` | string |  |
+| `CorrelationId` | string |  |
 
 ### `EncryptedPayload` (record)
 
@@ -235,6 +430,7 @@ Heartbeat with live load figures.
 | `RunningJobIds` | IReadOnlyList<Guid> | Jobs currently executing on the worker. |
 | `CpuUsagePercent` | double | 0-100. |
 | `MemoryUsagePercent` | double | 0-100. |
+| `SentUtc` | DateTimeOffset? | Optional worker clock time when the heartbeat was sent; a heartbeat older than one already processed is ignored (out-of-order delivery). |
 
 ### `HeartbeatResponse` (record)
 
@@ -305,6 +501,41 @@ Worker reports that an attempt started.
 |---|---|---|
 | `AttemptId` | Guid |  |
 
+### `JobStatisticsReportResponse` (record)
+
+Job statistics report.
+
+| Member | Type | Description |
+|---|---|---|
+| `FromDate` | DateOnly |  |
+| `ToDate` | DateOnly |  |
+| `TimeZone` | string |  |
+| `GroupBy` | IReadOnlyList<string> |  |
+| `Rows` | IReadOnlyList<JobStatisticsRowResponse> |  |
+| `Totals` | JobStatisticsRowResponse |  |
+| `GeneratedUtc` | DateTimeOffset |  |
+
+### `JobStatisticsRowResponse` (record)
+
+One row of the job statistics report (null grouping fields are not grouped).
+
+| Member | Type | Description |
+|---|---|---|
+| `Day` | DateOnly? |  |
+| `JobType` | string |  |
+| `WorkerId` | Guid? |  |
+| `WorkerName` | string |  |
+| `Submitted` | int |  |
+| `Succeeded` | int |  |
+| `Failed` | int |  |
+| `Cancelled` | int |  |
+| `SuccessRate` | double |  |
+| `AvgAttempts` | double |  |
+| `AvgDurationMs` | double |  |
+| `P95DurationMs` | double |  |
+| `AvgQueueWaitMs` | double |  |
+| `ThroughputPerHour` | double |  |
+
 ### `JobStatusResponse` (record)
 
 Public view of a job.
@@ -331,6 +562,17 @@ Public view of a job.
 | `CancelReason` | string |  |
 | `Sensitive` | bool |  |
 | `Tags` | IReadOnlyList<string> |  |
+
+### `JobTypeInfoResponse` (record)
+
+Job type known to the cluster (registered by an online worker or present in the queue).
+
+| Member | Type | Description |
+|---|---|---|
+| `JobType` | string |  |
+| `OnlineWorkers` | int |  |
+| `TotalConcurrency` | int |  |
+| `Pending` | int |  |
 
 ### `PagedResponse`1` (record)
 
@@ -360,6 +602,47 @@ Poll result.
 |---|---|---|
 | `Assignments` | IReadOnlyList<JobAssignmentResponse> |  |
 | `Commands` | IReadOnlyList<WorkerCommandResponse> |  |
+
+### `QueueStatusResponse` (record)
+
+Current queue usage against one threshold.
+
+| Member | Type | Description |
+|---|---|---|
+| `ThresholdId` | Guid |  |
+| `JobType` | string |  |
+| `Pending` | int |  |
+| `MaxPending` | int |  |
+| `UsagePercent` | double |  |
+| `Level` | QueueLevel |  |
+| `Enabled` | bool |  |
+
+### `QueueThresholdRequest` (record)
+
+Create or update a queue threshold.
+
+| Member | Type | Description |
+|---|---|---|
+| `JobType` | string | Job type, or `*` for the total of all types. |
+| `MaxPending` | int | Pending jobs at which new jobs are rejected (1 - 10,000,000). |
+| `WarnPercent` | int | Percentage of MaxPending that raises a near-limit alert (1-99). |
+| `Enabled` | bool | Apply this threshold. |
+| `Version` | long? | Required on update. |
+
+### `QueueThresholdResponse` (record)
+
+Queue threshold.
+
+| Member | Type | Description |
+|---|---|---|
+| `ThresholdId` | Guid |  |
+| `JobType` | string |  |
+| `MaxPending` | int |  |
+| `WarnPercent` | int |  |
+| `Enabled` | bool |  |
+| `UpdatedBy` | string |  |
+| `UpdatedUtc` | DateTimeOffset |  |
+| `Version` | long |  |
 
 ### `RegisterWorkerRequest` (record)
 
@@ -503,6 +786,42 @@ Machine specification used by the scheduler to match jobs to hardware.
 | `BenchmarkScore` | double | Relative single benchmark score (1.0 = baseline machine). |
 | `Os` | string | Operating system description. |
 
+### `AlertEventType` (enum)
+
+Event that can raise an alert through MessageHub.
+
+| Name | Value | Description |
+|---|---|---|
+| `AnomalyDetected` | 0 | Anomaly detection found something at or above `Anomaly:MinAlertSeverity`. |
+| `WorkerRegistered` | 1 | A worker registered (or registered again). |
+| `WorkerUnregistered` | 2 | A worker unregistered itself or was removed by an administrator. |
+| `WorkerLost` | 3 | A worker stopped sending heartbeats without unregistering; its jobs were re-distributed. |
+| `LeaderChanged` | 4 | Another server instance became the primary (leader). |
+| `QueueNearLimit` | 5 | Pending jobs reached the warning percentage of a queue threshold. |
+| `QueueOverLimit` | 6 | Pending jobs reached the limit of a queue threshold; new jobs of that type are rejected. |
+| `Test` | 7 | Test message sent from the recipient screen. |
+
+### `AlertSendStatus` (enum)
+
+Delivery state of one alert to one recipient.
+
+| Name | Value | Description |
+|---|---|---|
+| `Pending` | 0 | Waiting to be sent (or waiting for a retry). |
+| `Sent` | 1 | Accepted by MessageHub. |
+| `Failed` | 2 | Gave up: permanent error or too many attempts. |
+| `Skipped` | 3 | Not sent: recipient disabled or deleted, or MessageHub not configured. |
+
+### `AlertSeverity` (enum)
+
+Alert severity (same values as anomaly severity).
+
+| Name | Value | Description |
+|---|---|---|
+| `Info` | 0 |  |
+| `Warning` | 1 |  |
+| `Critical` | 2 |  |
+
 ### `AttemptOutcome` (enum)
 
 Outcome reported by a worker for one execution attempt.
@@ -530,6 +849,16 @@ Lifecycle state of a job.
 | `Failed` | 4 | Finished with an error and no retries left (or a non-retryable error). |
 | `CancelRequested` | 5 | Cancellation requested; waiting for the worker to acknowledge. |
 | `Cancelled` | 6 | Cancelled. |
+
+### `QueueLevel` (enum)
+
+Queue usage compared with its threshold.
+
+| Name | Value | Description |
+|---|---|---|
+| `Normal` | 0 |  |
+| `NearLimit` | 1 |  |
+| `OverLimit` | 2 |  |
 
 ### `WorkerCommandKind` (enum)
 

@@ -19,6 +19,11 @@ public sealed class InMemoryStore
     internal readonly Dictionary<Guid, WorkerCommandDTO> Commands = [];
     internal readonly Dictionary<Guid, DateTimeOffset?> CommandAcks = [];
     internal readonly Dictionary<string, LeaderLeaseDTO> Leases = [];
+    internal readonly Dictionary<Guid, AlertRecipientDTO> Recipients = [];
+    internal readonly List<AlertOutboxDTO> Outbox = [];
+    internal long OutboxSequence;
+    internal readonly Dictionary<Guid, QueueThresholdDTO> Thresholds = [];
+    internal readonly Dictionary<(string Principal, string Route, string Key), IdempotencyRecordDTO> Idempotency = [];
 }
 
 /// <summary>In-memory <see cref="IJobDAO"/>.</summary>
@@ -484,7 +489,8 @@ public sealed class InMemoryLeaderLeaseADO(InMemoryStore store) : ILeaderLeaseDA
             {
                 return Task.FromResult(false);
             }
-            store.Leases[name] = new LeaderLeaseDTO(name, holderId, expiresUtc);
+            var term = l is null ? 1 : l.HolderId == holderId ? l.Term : l.Term + 1;
+            store.Leases[name] = new LeaderLeaseDTO(name, holderId, expiresUtc, term);
             return Task.FromResult(true);
         }
     }
@@ -505,7 +511,8 @@ public sealed class InMemoryLeaderLeaseADO(InMemoryStore store) : ILeaderLeaseDA
         {
             if (store.Leases.TryGetValue(name, out var l) && l.HolderId == holderId)
             {
-                store.Leases.Remove(name);
+                // Keep the row (expired) so the term keeps growing, like the SQL providers after a release.
+                store.Leases[name] = l with { ExpiresUtc = DateTimeOffset.MinValue };
             }
         }
         return Task.CompletedTask;

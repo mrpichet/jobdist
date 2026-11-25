@@ -77,4 +77,4 @@ public sealed class WorkerCommandDTO
 /// <param name="Name">Lease name (e.g. <c>scheduler</c>).</param>
 /// <param name="HolderId">Instance currently holding it.</param>
 /// <param name="ExpiresUtc">Expiry.</param>
-public sealed record LeaderLeaseDTO(string Name, string HolderId, DateTimeOffset ExpiresUtc);
+public sealed record LeaderLeaseDTO(string Name, string HolderId, DateTimeOffset ExpiresUtc, long Term = 0);

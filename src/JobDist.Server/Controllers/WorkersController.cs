@@ -2,6 +2,7 @@ using JobDist.Contracts;
 using JobDist.Core.Domain;
 using JobDist.Core.Services;
 using JobDist.Server.Security;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,9 +14,11 @@ namespace JobDist.Server.Controllers;
 /// report start / completion, unregister. Every call after registration carries <c>X-Worker-Token</c>.
 /// </summary>
 [ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/workers")]
 [Route("api/workers")]
 [Produces("application/json")]
-public sealed class WorkersController(WorkerRegistryService registry, DispatchService dispatch, JobExecutionService execution, JobRiskService risk) : ControllerBase
+public sealed class WorkersController(WorkerRegistryService registry, DispatchService dispatch, JobExecutionService execution, JobRiskService risk, ILogger<WorkersController> logger) : ControllerBase
 {
     /// <summary>Registers (or re-registers) a worker and returns its secret token and the server's signing keys.</summary>
     /// <param name="request">Name, job types with concurrency, machine spec, encryption public keys.</param>
@@ -28,11 +31,12 @@ public sealed class WorkersController(WorkerRegistryService registry, DispatchSe
 
     /// <summary>Unregisters a worker (graceful shutdown); jobs it holds are re-distributed immediately.</summary>
     [HttpDelete("{workerId:guid}")]
-    [Authorize(Roles = Roles.Worker + "," + Roles.Admin)]
+    [JobDistAuthorize(Permissions.WorkerUnregister, RoleSets.WorkerOrAdmin)]
     [ServiceFilter<WorkerTokenFilter>]
     public async Task<IActionResult> Unregister(Guid workerId, CancellationToken ct)
     {
         await registry.UnregisterAsync(workerId, ct);
+        logger.LogInformation("Audit {Action} worker {WorkerId} by {UserId} from {ClientIp}.", "worker.unregister", workerId, User.CallerId(), HttpContext.Connection.RemoteIpAddress);
         return NoContent();
     }
 
@@ -69,26 +73,27 @@ public sealed class WorkersController(WorkerRegistryService registry, DispatchSe
 
     /// <summary>Lists workers.</summary>
     [HttpGet]
-    [Authorize(Policy = Policies.Read)]
+    [JobDistAuthorize(Permissions.WorkerView, RoleSets.Read)]
     public async Task<ActionResult<IReadOnlyList<WorkerResponse>>> List([FromQuery] bool includeUnregistered = false, CancellationToken ct = default) =>
         Ok(await registry.ListAsync(includeUnregistered, ct));
 
     /// <summary>Gets a worker.</summary>
     [HttpGet("{workerId:guid}")]
-    [Authorize(Policy = Policies.Read)]
+    [JobDistAuthorize(Permissions.WorkerView, RoleSets.Read)]
     public async Task<ActionResult<WorkerResponse>> Get(Guid workerId, CancellationToken ct) => Ok(await registry.GetAsync(workerId, ct));
 
     /// <summary>Drains a worker (no new jobs, current ones finish).</summary>
     [HttpPost("{workerId:guid}/drain")]
-    [Authorize(Policy = Policies.Admin)]
+    [JobDistAuthorize(Permissions.WorkerDrain, RoleSets.Admin)]
     public async Task<IActionResult> Drain(Guid workerId, CancellationToken ct)
     {
         await registry.DrainAsync(workerId, ct);
+        logger.LogInformation("Audit {Action} worker {WorkerId} by {UserId} from {ClientIp}.", "worker.drain", workerId, User.CallerId(), HttpContext.Connection.RemoteIpAddress);
         return Accepted();
     }
 
     /// <summary>Health risk of a worker.</summary>
     [HttpGet("{workerId:guid}/risk")]
-    [Authorize(Policy = Policies.Read)]
+    [JobDistAuthorize(Permissions.WorkerView, RoleSets.Read)]
     public async Task<ActionResult<RiskAssessmentDTO>> Risk(Guid workerId, CancellationToken ct) => Ok(await risk.AssessWorkerAsync(workerId, ct));
 }

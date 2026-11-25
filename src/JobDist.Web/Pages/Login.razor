@@ -1,0 +1,19 @@
+@page "/login"
+@layout LoginLayout
+@* Login: webcommon LoginForm (AuthServer, MFA), client id from Auth:ClientId. *@
+<PageTitle>@T["Login.Title"] · @App.Value.Name</PageTitle>
+
+<LoginForm ReturnUrl="@ReturnUrl" />
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [Inject] private IOptions<AppInfoOptions> App { get; set; } = default!;
+    [Inject] private PermissionService Permissions { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await Permissions.GetUserAsync();
+        if (user.Identity?.IsAuthenticated == true) Nav.NavigateTo("", replace: true);
+    }
+}

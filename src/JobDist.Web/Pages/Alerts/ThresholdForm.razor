@@ -1,0 +1,117 @@
+@page "/alerts/queue-thresholds/new"
+@page "/alerts/queue-thresholds/{Id:guid}"
+@page "/alerts/queue-thresholds/{Id:guid}/edit"
+@attribute [Authorize]
+@* X6 Queue threshold form (New / View / Edit by URL). *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@(_mode == FormMode.View ? AppPermissions.AlertView : AppPermissions.QueueManage)">
+    <LoadState Ready="@(_model is not null)" NotFound="_notFound" NotFoundTitle="@L["Threshold.NotFound"]" Error="@_error" OnRetry="LoadAsync">
+        <FormTemplate Title="@Title" Description="@L["Threshold.Form.Description"]" Breadcrumbs="Crumbs" Mode="_mode" Model="_model!"
+                      SavePermission="@AppPermissions.QueueManage" EditPermission="@AppPermissions.QueueManage"
+                      OnSave="SaveAsync" OnCancel="Back" OnEdit="@(() => Nav.NavigateTo($"alerts/queue-thresholds/{Id}/edit"))">
+            <Notice>
+                <Alert Level="AlertLevel.Info" Title="@L["Threshold.Form.HowTitle"]">@L["Threshold.Form.How"]</Alert>
+            </Notice>
+            <ChildContent>
+                <FormSection Title="@L["Threshold.Form.Section"]">
+                    <FieldGrid Columns="2">
+                        <FormField Label="@L["Job.JobType"]" InputId="jobtype" For="() => _model!.JobType" Required Hint="@L["Threshold.JobTypeHint"]">
+                            <DxComboBox InputId="jobtype" Data="_jobTypes" @bind-Value="_model!.JobType" AllowUserInput="true" ReadOnly="@(_mode != FormMode.New)"
+                                        SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains" />
+                        </FormField>
+                        <FormField Label="@L["Threshold.MaxPending"]" InputId="max" For="() => _model!.MaxPending" Required Hint="@L["Threshold.MaxPendingHint"]">
+                            <DxSpinEdit InputId="max" @bind-Value="_model!.MaxPending" MinValue="1" MaxValue="10000000" DisplayFormat="N0" />
+                        </FormField>
+                        <FormField Label="@L["Threshold.WarnPercent"]" InputId="warn" For="() => _model!.WarnPercent" Required Hint="@L["Threshold.WarnPercentHint", WarnAt]">
+                            <DxSpinEdit InputId="warn" @bind-Value="_model!.WarnPercent" MinValue="1" MaxValue="99" />
+                        </FormField>
+                        <Field Label="@L["Common.Status"]" InputId="enabled">
+                            <DxCheckBox InputId="enabled" @bind-Checked="_model!.Enabled" CheckType="CheckType.Switch">@(_model!.Enabled ? L["Common.Enabled"] : L["Common.Disabled"])</DxCheckBox>
+                        </Field>
+                    </FieldGrid>
+                </FormSection>
+            </ChildContent>
+            <AuditInfo>
+                @if (_current is not null)
+                {
+                    <span>@L["Common.UpdatedByAt", _current.UpdatedBy ?? "-", Fmt.Time(_current.UpdatedUtc)]</span>
+                }
+            </AuditInfo>
+        </FormTemplate>
+    </LoadState>
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private readonly string _idempotencyKey = Guid.NewGuid().ToString("N");
+    private FormMode _mode = FormMode.New;
+    private ThresholdModel? _model;
+    private QueueThresholdResponse? _current;
+    private List<string> _jobTypes = ["*"];
+    private bool _notFound;
+    private string? _error;
+
+    private string WarnAt => _model is null ? "-" : Math.Ceiling(_model.MaxPending * _model.WarnPercent / 100.0).ToString("N0");
+
+    private string Title => _mode switch
+    {
+        FormMode.New => L["Threshold.New"],
+        FormMode.Edit => L["Threshold.EditTitle", _current?.JobType ?? ""],
+        _ => L["Threshold.ViewTitle", _current?.JobType ?? ""]
+    };
+
+    private IReadOnlyList<Breadcrumb> Crumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Thresholds"], "alerts/queue-thresholds"), new(Title)];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
+        _mode = Id is null ? FormMode.New : path.EndsWith("/edit", StringComparison.Ordinal) ? FormMode.Edit : FormMode.View;
+        try { _jobTypes = ["*", .. (await Api.GetJobTypesAsync(CancellationToken.None)).Select(t => t.JobType).Order(StringComparer.Ordinal)]; }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (Id is null)
+        {
+            _model = new ThresholdModel();
+            return;
+        }
+        var r = await Loaded<QueueThresholdResponse>.FromAsync(() => Api.GetThresholdAsync(Id.Value, CancellationToken.None));
+        (_current, _notFound, _error) = (r.Value, r.NotFound, r.Error);
+        _model = _current is null ? null : ThresholdModel.From(_current);
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        try
+        {
+            var saved = await Splash.RunAsync(L["Common.Saving"], (_, ct) => _mode == FormMode.New
+                ? Api.CreateThresholdAsync(_model!.ToRequest(), _idempotencyKey, ct)
+                : Api.UpdateThresholdAsync(Id!.Value, _model!.ToRequest(), ct), canCancel: false);
+            Toasts.Success(L["Threshold.Saved", saved.JobType]);
+            Nav.NavigateTo($"alerts/queue-thresholds/{saved.ThresholdId}");
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.IsConflict ? L["Threshold.Conflict"] : ex.Message);
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+            return false;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo(_mode == FormMode.Edit ? $"alerts/queue-thresholds/{Id}" : "alerts/queue-thresholds");
+}

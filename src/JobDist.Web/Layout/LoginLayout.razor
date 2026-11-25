@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+@*
+    LoginLayout: full-screen sign-in layout (news carousel + sign-in pane)
+*@
+<div class="auth-layout">
+    <div class="auth-layout__aside">
+        <LoginCarousel />
+    </div>
+    <div class="auth-layout__pane">
+        <header class="auth-layout__top">
+            <AppBrand Variant="surface" />
+            <div class="auth-layout__tools">
+                <LanguageSwitcher />
+                <ThemeToggle />
+            </div>
+        </header>
+        <main class="auth-layout__main" id="main-content">
+            <div class="auth-layout__card">
+                @Body
+            </div>
+        </main>
+        <footer class="auth-layout__footer">
+            <span>@App.Organization</span>
+            <span>v@(App.Version)</span>
+        </footer>
+    </div>
+    <ToastHost />
+</div>
+
+@code {
+    [Inject] private IOptions<AppInfoOptions> Options { get; set; } = default!;
+    private AppInfoOptions App => Options.Value;
+}

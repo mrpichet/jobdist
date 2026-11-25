@@ -1,0 +1,81 @@
+@page "/jobs/{JobId:guid}/cancel"
+@attribute [Authorize]
+@* S06 Cancel a job (confirmation form, Q10). A job held by a worker becomes CancelRequested until the worker stops. *@
+<PageTitle>@Title</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.JobCancel">
+    <LoadState Ready="@(_job is not null)" NotFound="_notFound" NotFoundTitle="@L["Job.NotFound"]" NotFoundHint="@L["Job.NotFoundHint"]" Error="@_error" OnRetry="LoadAsync">
+        <FormTemplate Title="@Title" Description="@L["Job.CancelPage.Description"]" Breadcrumbs="Crumbs" Mode="@(CanCancel ? FormMode.Edit : FormMode.View)" Model="_model"
+                      SaveText="@L["Job.CancelPage.Confirm"]" SavePermission="@AppPermissions.JobCancel" OnSave="SaveAsync" OnCancel="Back">
+            <Notice>
+                @if (!CanCancel)
+                {
+                    <Alert Level="AlertLevel.Info" Title="@L["Job.CancelPage.NotAllowed"]">@L["Job.CancelPage.NotAllowedHint", Fmt.Status(_job!.Status)]</Alert>
+                }
+                else if (_job!.Status is JobStatus.Assigned or JobStatus.Running)
+                {
+                    <Alert Level="AlertLevel.Warning" Title="@L["Job.CancelPage.RunningTitle"]">@L["Job.CancelPage.RunningHint"]</Alert>
+                }
+            </Notice>
+            <ChildContent>
+                <FormSection Title="@L["Job.Detail.Section.Status"]">
+                    <JobFacts Job="_job!" />
+                </FormSection>
+                <FormSection Title="@L["Job.CancelReason"]">
+                    <FormField Label="@L["Job.CancelReason"]" InputId="reason" For="() => _model.Reason" Hint="@L["Job.CancelPage.ReasonHint"]">
+                        <DxMemo InputId="reason" @bind-Text="_model.Reason" Rows="3" ResizeMode="MemoResizeMode.Vertical" Attributes="@(new Dictionary<string, object> { ["maxlength"] = "500" })" />
+                    </FormField>
+                </FormSection>
+            </ChildContent>
+        </FormTemplate>
+    </LoadState>
+</RequirePermission>
+
+@code {
+    [Parameter] public Guid JobId { get; set; }
+
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private JobStatusResponse? _job;
+    private readonly CancelModel _model = new();
+    private bool _notFound;
+    private string? _error;
+
+    private bool CanCancel => _job is not null && !Fmt.IsFinal(_job.Status) && _job.Status != JobStatus.CancelRequested;
+    private string Title => L["Job.CancelPage.Title", Fmt.Short(JobId)];
+    private IReadOnlyList<Breadcrumb> Crumbs => [new(L["Menu.Dashboard"], ""), new(L["Menu.Jobs"], "jobs"), new(L["Job.Detail.Title", Fmt.Short(JobId)], $"jobs/{JobId}"), new(L["Job.Cancel"])];
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Loaded<JobStatusResponse>.FromAsync(() => Api.GetJobAsync(JobId, CancellationToken.None));
+        (_job, _notFound, _error) = (r.Value, r.NotFound, r.Error);
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        try
+        {
+            var result = await Splash.RunAsync(L["Job.CancelPage.Saving"], (_, ct) => Api.CancelJobAsync(JobId, string.IsNullOrWhiteSpace(_model.Reason) ? null : _model.Reason.Trim(), ct), canCancel: false);
+            Toasts.Success(result.Status == JobStatus.CancelRequested ? L["Job.CancelPage.Requested"] : L["Job.CancelPage.Done"]);
+            Back();
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+            return false;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo($"jobs/{JobId}");
+}

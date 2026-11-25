@@ -1,0 +1,17 @@
+@* Queue usage bar: text first, bar is decoration (aria-hidden). *@
+<div class="usage">
+    <span>@Label · @Fmt.Percent(Percent) (@Pending.ToString("N0") / @Max.ToString("N0"))</span>
+    <div class="usage__bar" aria-hidden="true">
+        <div class="usage__fill @FillClass" style="width:@(Math.Clamp(Percent, 0, 100).ToString("0.#", CultureInfo.InvariantCulture))%"></div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public double Percent { get; set; }
+    [Parameter] public int Pending { get; set; }
+    [Parameter] public int Max { get; set; }
+    [Parameter] public QueueLevel Level { get; set; }
+
+    private string FillClass => Level switch { QueueLevel.OverLimit => "usage__fill--danger", QueueLevel.NearLimit => "usage__fill--warning", _ => "" };
+}

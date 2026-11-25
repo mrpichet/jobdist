@@ -21,7 +21,7 @@ internal sealed class TestHost : IDisposable
 
     private readonly ServiceProvider _provider;
 
-    public TestHost(Dictionary<string, string?>? overrides = null)
+    public TestHost(Dictionary<string, string?>? overrides = null, Action<IServiceCollection>? configure = null)
     {
         var settings = new Dictionary<string, string?>
         {
@@ -47,6 +47,7 @@ internal sealed class TestHost : IDisposable
         services.AddSingleton(Configuration);
         services.AddJobDist(Configuration, runBackgroundWorkers: false);
         services.AddJobDistAiTools();
+        configure?.Invoke(services);
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 

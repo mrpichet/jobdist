@@ -1,22 +1,23 @@
 {
   "name": "JobDist",
   "description": "Distributed job scheduler (.NET 10): REST API + MCP server over the same business logic.",
-  "authentication": "Header X-Api-Key (roles: Admin, Submitter, Viewer, Worker, AiAgent). Worker calls also need X-Worker-Token from registration.",
+  "authentication": "Header X-Api-Key (roles: Admin, Submitter, Viewer, Worker, AiAgent) or Authorization: Bearer <AuthServer token> with jobdist.* permissions. Worker calls also need X-Worker-Token from registration.",
+  "versioning": "URL segment api/v1/...; the unversioned api/... alias equals v1. Header api-version or query ?api-version also accepted.",
   "endpoints": [
     {
       "Verb": "GET",
-      "Route": "/api/admin/summary",
+      "Route": "/api/v1/admin/summary",
       "Group": "Admin",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.dashboard.view` / API key Read",
       "Summary": "Cluster summary (workers, capacity, jobs by status, pending per type, HA leader).",
       "Parameters": [],
       "Returns": "ClusterSummaryDTO"
     },
     {
       "Verb": "GET",
-      "Route": "/api/admin/performance",
+      "Route": "/api/v1/admin/performance",
       "Group": "Admin",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.insight.view` / API key Read",
       "Summary": "What the ML model learned (per worker and job type).",
       "Parameters": [
         {
@@ -30,9 +31,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/admin/recommendations",
+      "Route": "/api/v1/admin/recommendations",
       "Group": "Admin",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.insight.view` / API key Read",
       "Summary": "Workers ranked for a job type with explanations.",
       "Parameters": [
         {
@@ -52,9 +53,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/admin/anomalies",
+      "Route": "/api/v1/admin/anomalies",
       "Group": "Admin",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.insight.view` / API key Read",
       "Summary": "Runs anomaly detection now.",
       "Parameters": [
         {
@@ -68,9 +69,9 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/admin/anomalies/alert",
+      "Route": "/api/v1/admin/anomalies/alert",
       "Group": "Admin",
-      "Auth": "policy:Admin",
+      "Auth": "permission `jobdist.alert.send` / API key Admin",
       "Summary": "Runs anomaly detection and sends an alert to admins through MessageHub immediately (ignores cooldown).",
       "Parameters": [
         {
@@ -83,10 +84,222 @@
       "Returns": "IReadOnlyList<AnomalyDTO>"
     },
     {
+      "Verb": "GET",
+      "Route": "/api/v1/agent/status",
+      "Group": "AgentChat",
+      "Auth": "anonymous",
+      "Summary": "Whether an AI provider is configured (anonymous: the web console reads it before sign-in to show or hide the assistant).",
+      "Parameters": [],
+      "Returns": "AgentStatusResponse"
+    },
+    {
       "Verb": "POST",
-      "Route": "/api/jobs",
+      "Route": "/api/v1/agent/chat",
+      "Group": "AgentChat",
+      "Auth": "permission `jobdist.agent.use` / API key None",
+      "Summary": "Answers a chat with read-only JobDist tools filtered by the caller's permissions (503 when not configured).",
+      "Parameters": [
+        {
+          "Name": "request",
+          "Type": "AgentChatRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "AgentChatResponse"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/recipients",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.view` / API key ConsoleRead",
+      "Summary": "All recipients (addresses masked).",
+      "Parameters": [],
+      "Returns": "IReadOnlyList<AlertRecipientResponse>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/recipients/{id:guid}",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.view` / API key ConsoleRead",
+      "Summary": "One recipient.",
+      "Parameters": [
+        {
+          "Name": "id",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "AlertRecipientResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/v1/alerts/recipients",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.manage` / API key ConsoleWrite",
+      "Summary": "Creates a recipient (send header `Idempotency-Key` so a retry does not create a second one).",
+      "Parameters": [
+        {
+          "Name": "request",
+          "Type": "AlertRecipientRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "AlertRecipientResponse"
+    },
+    {
+      "Verb": "PUT",
+      "Route": "/api/v1/alerts/recipients/{id:guid}",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.manage` / API key ConsoleWrite",
+      "Summary": "Updates a recipient; `version` is required (409 when someone else saved first). Empty address keeps the stored one.",
+      "Parameters": [
+        {
+          "Name": "id",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "request",
+          "Type": "AlertRecipientRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "AlertRecipientResponse"
+    },
+    {
+      "Verb": "DELETE",
+      "Route": "/api/v1/alerts/recipients/{id:guid}",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.manage` / API key ConsoleWrite",
+      "Summary": "Deletes a recipient.",
+      "Parameters": [
+        {
+          "Name": "id",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "version",
+          "Type": "long",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "status / JSON"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/v1/alerts/recipients/{id:guid}/test",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.manage` / API key ConsoleWrite",
+      "Summary": "Sends a test message to the recipient now.",
+      "Parameters": [
+        {
+          "Name": "id",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "AlertSendResultResponse"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/channels",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.view` / API key ConsoleRead",
+      "Summary": "Channels enabled on MessageHub (empty when MessageHub is not configured).",
+      "Parameters": [],
+      "Returns": "IReadOnlyList<string>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/event-types",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.view` / API key ConsoleRead",
+      "Summary": "Alert event types.",
+      "Parameters": [],
+      "Returns": "IReadOnlyList<string>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/logs",
+      "Group": "AlertRecipients",
+      "Auth": "permission `jobdist.alert.view` / API key ConsoleRead",
+      "Summary": "Alert history (X1), newest first.",
+      "Parameters": [
+        {
+          "Name": "fromUtc",
+          "Type": "DateTimeOffset?",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "toUtc",
+          "Type": "DateTimeOffset?",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "eventType",
+          "Type": "AlertEventType?",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "status",
+          "Type": "AlertSendStatus?",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "recipientId",
+          "Type": "Guid?",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "skip",
+          "Type": "int",
+          "Source": "query",
+          "Description": ""
+        },
+        {
+          "Name": "take",
+          "Type": "int",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "PagedResponse<AlertLogResponse>"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/v1/client-logs",
+      "Group": "ClientLogs",
+      "Auth": "authenticated",
+      "Summary": "Accepts 1-50 entries; the server adds user id, client IP and user agent itself.",
+      "Parameters": [
+        {
+          "Name": "request",
+          "Type": "ClientLogBatchRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "status / JSON"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/v1/jobs",
       "Group": "Jobs",
-      "Auth": "policy:Submit",
+      "Auth": "permission `jobdist.job.create` / API key Submit",
       "Summary": "Submits a job.",
       "Parameters": [
         {
@@ -100,9 +313,9 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/jobs/batch",
+      "Route": "/api/v1/jobs/batch",
       "Group": "Jobs",
-      "Auth": "policy:Submit",
+      "Auth": "permission `jobdist.job.create` / API key Submit",
       "Summary": "Submits up to 5,000 jobs in one request (bulk insert).",
       "Parameters": [
         {
@@ -116,9 +329,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/jobs/{jobId:guid}",
+      "Route": "/api/v1/jobs/{jobId:guid}",
       "Group": "Jobs",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.job.view` / API key Read",
       "Summary": "Gets the status of a job.",
       "Parameters": [
         {
@@ -132,9 +345,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/jobs",
+      "Route": "/api/v1/jobs",
       "Group": "Jobs",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.job.view` / API key Read",
       "Summary": "Lists jobs (newest first).",
       "Parameters": [
         {
@@ -172,9 +385,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/jobs/{jobId:guid}/attempts",
+      "Route": "/api/v1/jobs/{jobId:guid}/attempts",
       "Group": "Jobs",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.job.view` / API key Read",
       "Summary": "Distribution history (attempts, workers, timings).",
       "Parameters": [
         {
@@ -188,9 +401,9 @@
     },
     {
       "Verb": "PATCH",
-      "Route": "/api/jobs/{jobId:guid}/priority",
+      "Route": "/api/v1/jobs/{jobId:guid}/priority",
       "Group": "Jobs",
-      "Auth": "policy:Submit",
+      "Auth": "permission `jobdist.job.edit` / API key Submit",
       "Summary": "Changes the priority of an unfinished job.",
       "Parameters": [
         {
@@ -210,9 +423,9 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/jobs/{jobId:guid}/cancel",
+      "Route": "/api/v1/jobs/{jobId:guid}/cancel",
       "Group": "Jobs",
-      "Auth": "policy:Submit",
+      "Auth": "permission `jobdist.job.cancel` / API key Submit",
       "Summary": "Cancels a job. If a worker holds it, the server sends that worker a signed cancel command (status CancelRequested → Cancelled).",
       "Parameters": [
         {
@@ -232,9 +445,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/jobs/{jobId:guid}/risk",
+      "Route": "/api/v1/jobs/{jobId:guid}/risk",
       "Group": "Jobs",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.job.view` / API key Read",
       "Summary": "Risk (0-100) that the job fails / is delayed, with explained factors.",
       "Parameters": [
         {
@@ -248,9 +461,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/jobs/risk",
+      "Route": "/api/v1/jobs/risk",
       "Group": "Jobs",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.job.create or jobdist.job.view` / API key Read",
       "Summary": "What-if risk of submitting a job type (nothing is created).",
       "Parameters": [
         {
@@ -288,7 +501,16 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/keys",
+      "Route": "/api/v1/jobs/types",
+      "Group": "Jobs",
+      "Auth": "permission `jobdist.job.view` / API key Read",
+      "Summary": "Job types registered by online workers or waiting in the queue (for pickers).",
+      "Parameters": [],
+      "Returns": "IReadOnlyList<JobTypeInfoResponse>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/keys",
       "Group": "Keys",
       "Auth": "anonymous",
       "Summary": "ML-DSA-65 + ECDSA-P384 public keys.",
@@ -296,8 +518,148 @@
       "Returns": "ServerKeysResponse"
     },
     {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/queue-thresholds",
+      "Group": "QueueThresholds",
+      "Auth": "permission `jobdist.alert.view` / API key ConsoleRead",
+      "Summary": "All thresholds.",
+      "Parameters": [],
+      "Returns": "IReadOnlyList<QueueThresholdResponse>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/queue-thresholds/{id:guid}",
+      "Group": "QueueThresholds",
+      "Auth": "permission `jobdist.alert.view` / API key ConsoleRead",
+      "Summary": "One threshold.",
+      "Parameters": [
+        {
+          "Name": "id",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        }
+      ],
+      "Returns": "QueueThresholdResponse"
+    },
+    {
       "Verb": "POST",
-      "Route": "/api/workers/register",
+      "Route": "/api/v1/alerts/queue-thresholds",
+      "Group": "QueueThresholds",
+      "Auth": "permission `jobdist.queue.manage` / API key ConsoleWrite",
+      "Summary": "Creates a threshold (409 when the job type already has one).",
+      "Parameters": [
+        {
+          "Name": "request",
+          "Type": "QueueThresholdRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "QueueThresholdResponse"
+    },
+    {
+      "Verb": "PUT",
+      "Route": "/api/v1/alerts/queue-thresholds/{id:guid}",
+      "Group": "QueueThresholds",
+      "Auth": "permission `jobdist.queue.manage` / API key ConsoleWrite",
+      "Summary": "Updates a threshold (`version` required).",
+      "Parameters": [
+        {
+          "Name": "id",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "request",
+          "Type": "QueueThresholdRequest",
+          "Source": "body",
+          "Description": ""
+        }
+      ],
+      "Returns": "QueueThresholdResponse"
+    },
+    {
+      "Verb": "DELETE",
+      "Route": "/api/v1/alerts/queue-thresholds/{id:guid}",
+      "Group": "QueueThresholds",
+      "Auth": "permission `jobdist.queue.manage` / API key ConsoleWrite",
+      "Summary": "Deletes a threshold.",
+      "Parameters": [
+        {
+          "Name": "id",
+          "Type": "Guid",
+          "Source": "route",
+          "Description": ""
+        },
+        {
+          "Name": "version",
+          "Type": "long",
+          "Source": "query",
+          "Description": ""
+        }
+      ],
+      "Returns": "status / JSON"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/alerts/queue-status",
+      "Group": "QueueThresholds",
+      "Auth": "permission `jobdist.dashboard.view` / API key ConsoleRead",
+      "Summary": "Current pending jobs against every threshold (dashboard).",
+      "Parameters": [],
+      "Returns": "IReadOnlyList<QueueStatusResponse>"
+    },
+    {
+      "Verb": "GET",
+      "Route": "/api/v1/reports/job-statistics",
+      "Group": "Reports",
+      "Auth": "permission `jobdist.report.view` / API key ConsoleRead",
+      "Summary": "Job statistics by day (in timeZone), job type and/or worker.",
+      "Parameters": [
+        {
+          "Name": "fromDate",
+          "Type": "DateOnly",
+          "Source": "query",
+          "Description": "First day (yyyy-MM-dd)."
+        },
+        {
+          "Name": "toDate",
+          "Type": "DateOnly",
+          "Source": "query",
+          "Description": "Last day (yyyy-MM-dd); range at most `JobDist:RetentionDays`."
+        },
+        {
+          "Name": "jobType",
+          "Type": "string",
+          "Source": "query",
+          "Description": "Optional job type."
+        },
+        {
+          "Name": "workerId",
+          "Type": "Guid?",
+          "Source": "query",
+          "Description": "Optional worker."
+        },
+        {
+          "Name": "groupBy",
+          "Type": "string",
+          "Source": "query",
+          "Description": "`day`, `jobType`, `worker` or a comma-separated combination."
+        },
+        {
+          "Name": "timeZone",
+          "Type": "string",
+          "Source": "query",
+          "Description": "IANA time zone (default Asia/Bangkok)."
+        }
+      ],
+      "Returns": "JobStatisticsReportResponse"
+    },
+    {
+      "Verb": "POST",
+      "Route": "/api/v1/workers/register",
       "Group": "Workers",
       "Auth": "policy:Worker",
       "Summary": "Registers (or re-registers) a worker and returns its secret token and the server's signing keys.",
@@ -313,9 +675,9 @@
     },
     {
       "Verb": "DELETE",
-      "Route": "/api/workers/{workerId:guid}",
+      "Route": "/api/v1/workers/{workerId:guid}",
       "Group": "Workers",
-      "Auth": "roles:Worker,Admin",
+      "Auth": "permission `jobdist.worker.unregister` / API key WorkerOrAdmin",
       "Summary": "Unregisters a worker (graceful shutdown); jobs it holds are re-distributed immediately.",
       "Parameters": [
         {
@@ -329,7 +691,7 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/workers/{workerId:guid}/heartbeat",
+      "Route": "/api/v1/workers/{workerId:guid}/heartbeat",
       "Group": "Workers",
       "Auth": "policy:Worker",
       "Summary": "Heartbeat with load figures; returns pending signed commands (cancel / drain).",
@@ -351,7 +713,7 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/workers/{workerId:guid}/poll",
+      "Route": "/api/v1/workers/{workerId:guid}/poll",
       "Group": "Workers",
       "Auth": "policy:Worker",
       "Summary": "Long-poll for signed job assignments (returns early when work arrives).",
@@ -373,7 +735,7 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/workers/{workerId:guid}/jobs/{jobId:guid}/started",
+      "Route": "/api/v1/workers/{workerId:guid}/jobs/{jobId:guid}/started",
       "Group": "Workers",
       "Auth": "policy:Worker",
       "Summary": "Reports that an attempt started. Response `cancelRequested=true` means stop immediately.",
@@ -401,7 +763,7 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/workers/{workerId:guid}/jobs/{jobId:guid}/completed",
+      "Route": "/api/v1/workers/{workerId:guid}/jobs/{jobId:guid}/completed",
       "Group": "Workers",
       "Auth": "policy:Worker",
       "Summary": "Reports the end of an attempt; 409 when the job was already re-distributed (the worker drops the result).",
@@ -429,9 +791,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/workers",
+      "Route": "/api/v1/workers",
       "Group": "Workers",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.worker.view` / API key Read",
       "Summary": "Lists workers.",
       "Parameters": [
         {
@@ -445,9 +807,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/workers/{workerId:guid}",
+      "Route": "/api/v1/workers/{workerId:guid}",
       "Group": "Workers",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.worker.view` / API key Read",
       "Summary": "Gets a worker.",
       "Parameters": [
         {
@@ -461,9 +823,9 @@
     },
     {
       "Verb": "POST",
-      "Route": "/api/workers/{workerId:guid}/drain",
+      "Route": "/api/v1/workers/{workerId:guid}/drain",
       "Group": "Workers",
-      "Auth": "policy:Admin",
+      "Auth": "permission `jobdist.worker.drain` / API key Admin",
       "Summary": "Drains a worker (no new jobs, current ones finish).",
       "Parameters": [
         {
@@ -477,9 +839,9 @@
     },
     {
       "Verb": "GET",
-      "Route": "/api/workers/{workerId:guid}/risk",
+      "Route": "/api/v1/workers/{workerId:guid}/risk",
       "Group": "Workers",
-      "Auth": "policy:Read",
+      "Auth": "permission `jobdist.worker.view` / API key Read",
       "Summary": "Health risk of a worker.",
       "Parameters": [
         {
@@ -751,6 +1113,84 @@
       }
     },
     {
+      "name": "get_queue_status",
+      "description": "Get pending jobs compared with the configured queue thresholds: pending, limit, usage percent and level (Normal, NearLimit, OverLimit). Over the limit, new jobs of that type are rejected.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "list_alert_logs",
+      "description": "List alerts sent to administrators through MessageHub in the last hours: event type, severity, title, recipient (masked address) and delivery status.",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "description": "Look back this many hours (1-720).",
+            "type": "integer",
+            "default": 24
+          },
+          "eventType": {
+            "description": "Optional event type: AnomalyDetected, WorkerRegistered, WorkerUnregistered, WorkerLost, LeaderChanged, QueueNearLimit, QueueOverLimit, Test.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "AnomalyDetected",
+              "WorkerRegistered",
+              "WorkerUnregistered",
+              "WorkerLost",
+              "LeaderChanged",
+              "QueueNearLimit",
+              "QueueOverLimit",
+              "Test",
+              null
+            ],
+            "default": null
+          }
+        }
+      }
+    },
+    {
+      "name": "get_job_statistics",
+      "description": "Job statistics per day (Asia/Bangkok), job type or worker: submitted, succeeded, failed, cancelled, success rate, average attempts, average and P95 duration, average queue wait, throughput per hour. Dates are yyyy-MM-dd; range at most the retention period (30 days).",
+      "sideEffect": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "fromDate": {
+            "description": "First day, yyyy-MM-dd.",
+            "type": "string"
+          },
+          "toDate": {
+            "description": "Last day, yyyy-MM-dd.",
+            "type": "string"
+          },
+          "jobType": {
+            "description": "Optional job type filter.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "groupBy": {
+            "description": "Grouping: day, jobType, worker or a comma-separated combination.",
+            "type": "string",
+            "default": "day"
+          }
+        },
+        "required": [
+          "fromDate",
+          "toDate"
+        ]
+      }
+    },
+    {
       "name": "submit_job",
       "description": "Submit a new job. Only available when the operator enabled side-effect tools. Use assess_submission_risk first.",
       "sideEffect": true,
@@ -854,6 +1294,282 @@
   ],
   "contracts": [
     {
+      "Name": "AgentChatMessage",
+      "Kind": "record",
+      "Summary": "One chat message (same shape as WebCommon.UI `BackendChatClient`).",
+      "Members": [
+        {
+          "Name": "Role",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Content",
+          "Type": "string",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "AgentChatRequest",
+      "Kind": "record",
+      "Summary": "Chat request from the web console.",
+      "Members": [
+        {
+          "Name": "Messages",
+          "Type": "IReadOnlyList<AgentChatMessage>",
+          "Description": ""
+        },
+        {
+          "Name": "Language",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Page",
+          "Type": "string",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "AgentChatResponse",
+      "Kind": "record",
+      "Summary": "Chat reply.",
+      "Members": [
+        {
+          "Name": "Reply",
+          "Type": "string",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "AgentStatusResponse",
+      "Kind": "record",
+      "Summary": "Whether the AI assistant is configured.",
+      "Members": [
+        {
+          "Name": "Enabled",
+          "Type": "bool",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "AlertLogResponse",
+      "Kind": "record",
+      "Summary": "One alert delivery (one row of the outbox).",
+      "Members": [
+        {
+          "Name": "AlertLogId",
+          "Type": "long",
+          "Description": ""
+        },
+        {
+          "Name": "CreatedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "EventType",
+          "Type": "AlertEventType",
+          "Description": ""
+        },
+        {
+          "Name": "Severity",
+          "Type": "AlertSeverity",
+          "Description": ""
+        },
+        {
+          "Name": "Title",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Subject",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "RecipientId",
+          "Type": "Guid?",
+          "Description": ""
+        },
+        {
+          "Name": "RecipientName",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Channel",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "AddressMasked",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Status",
+          "Type": "AlertSendStatus",
+          "Description": ""
+        },
+        {
+          "Name": "Attempts",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "SentUtc",
+          "Type": "DateTimeOffset?",
+          "Description": ""
+        },
+        {
+          "Name": "CorrelationId",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Error",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "InstanceId",
+          "Type": "string",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "AlertRecipientRequest",
+      "Kind": "record",
+      "Summary": "Create or update an alert recipient.",
+      "Members": [
+        {
+          "Name": "Name",
+          "Type": "string",
+          "Description": "Display name."
+        },
+        {
+          "Name": "Channel",
+          "Type": "string",
+          "Description": "MessageHub channel name, e.g. `Email`, `TeamsChat`, `Line`."
+        },
+        {
+          "Name": "Address",
+          "Type": "string",
+          "Description": "Address for the channel. On update, empty keeps the stored address."
+        },
+        {
+          "Name": "EventTypes",
+          "Type": "IReadOnlyList<AlertEventType>",
+          "Description": "Events this recipient receives (at least one)."
+        },
+        {
+          "Name": "MinSeverity",
+          "Type": "AlertSeverity",
+          "Description": "Lowest severity this recipient receives."
+        },
+        {
+          "Name": "Enabled",
+          "Type": "bool",
+          "Description": "Receive alerts."
+        },
+        {
+          "Name": "Version",
+          "Type": "long?",
+          "Description": "Required on update: the version that was read (optimistic concurrency)."
+        }
+      ]
+    },
+    {
+      "Name": "AlertRecipientResponse",
+      "Kind": "record",
+      "Summary": "Alert recipient as returned by the API. The address is never returned in full.",
+      "Members": [
+        {
+          "Name": "RecipientId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "Name",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Channel",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "AddressMasked",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "EventTypes",
+          "Type": "IReadOnlyList<AlertEventType>",
+          "Description": ""
+        },
+        {
+          "Name": "MinSeverity",
+          "Type": "AlertSeverity",
+          "Description": ""
+        },
+        {
+          "Name": "Enabled",
+          "Type": "bool",
+          "Description": ""
+        },
+        {
+          "Name": "CreatedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "UpdatedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "UpdatedBy",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Version",
+          "Type": "long",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "AlertSendResultResponse",
+      "Kind": "record",
+      "Summary": "Result of sending one message through MessageHub.",
+      "Members": [
+        {
+          "Name": "Status",
+          "Type": "AlertSendStatus",
+          "Description": "Sent, Failed or Skipped."
+        },
+        {
+          "Name": "CorrelationId",
+          "Type": "string",
+          "Description": "MessageHub message id when sent."
+        },
+        {
+          "Name": "Error",
+          "Type": "string",
+          "Description": "Short error text when not sent."
+        }
+      ]
+    },
+    {
       "Name": "CancelJobRequest",
       "Kind": "record",
       "Summary": "Cancel a job.",
@@ -874,6 +1590,65 @@
           "Name": "Priority",
           "Type": "int",
           "Description": "0 - 100."
+        }
+      ]
+    },
+    {
+      "Name": "ClientLogBatchRequest",
+      "Kind": "record",
+      "Summary": "Batch of browser log entries.",
+      "Members": [
+        {
+          "Name": "Entries",
+          "Type": "IReadOnlyList<ClientLogEntry>",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "ClientLogEntry",
+      "Kind": "record",
+      "Summary": "Log entry written in the browser.",
+      "Members": [
+        {
+          "Name": "EntryId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "TimestampUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "Level",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Category",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Message",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Page",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Exception",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "CorrelationId",
+          "Type": "string",
+          "Description": ""
         }
       ]
     },
@@ -933,6 +1708,11 @@
           "Name": "MemoryUsagePercent",
           "Type": "double",
           "Description": "0-100."
+        },
+        {
+          "Name": "SentUtc",
+          "Type": "DateTimeOffset?",
+          "Description": "Optional worker clock time when the heartbeat was sent; a heartbeat older than one already processed is ignored (out-of-order delivery)."
         }
       ]
     },
@@ -1142,6 +1922,125 @@
       ]
     },
     {
+      "Name": "JobStatisticsReportResponse",
+      "Kind": "record",
+      "Summary": "Job statistics report.",
+      "Members": [
+        {
+          "Name": "FromDate",
+          "Type": "DateOnly",
+          "Description": ""
+        },
+        {
+          "Name": "ToDate",
+          "Type": "DateOnly",
+          "Description": ""
+        },
+        {
+          "Name": "TimeZone",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "GroupBy",
+          "Type": "IReadOnlyList<string>",
+          "Description": ""
+        },
+        {
+          "Name": "Rows",
+          "Type": "IReadOnlyList<JobStatisticsRowResponse>",
+          "Description": ""
+        },
+        {
+          "Name": "Totals",
+          "Type": "JobStatisticsRowResponse",
+          "Description": ""
+        },
+        {
+          "Name": "GeneratedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "JobStatisticsRowResponse",
+      "Kind": "record",
+      "Summary": "One row of the job statistics report (null grouping fields are not grouped).",
+      "Members": [
+        {
+          "Name": "Day",
+          "Type": "DateOnly?",
+          "Description": ""
+        },
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "WorkerId",
+          "Type": "Guid?",
+          "Description": ""
+        },
+        {
+          "Name": "WorkerName",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Submitted",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Succeeded",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Failed",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Cancelled",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "SuccessRate",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "AvgAttempts",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "AvgDurationMs",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "P95DurationMs",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "AvgQueueWaitMs",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "ThroughputPerHour",
+          "Type": "double",
+          "Description": ""
+        }
+      ]
+    },
+    {
       "Name": "JobStatusResponse",
       "Kind": "record",
       "Summary": "Public view of a job.",
@@ -1249,6 +2148,33 @@
       ]
     },
     {
+      "Name": "JobTypeInfoResponse",
+      "Kind": "record",
+      "Summary": "Job type known to the cluster (registered by an online worker or present in the queue).",
+      "Members": [
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "OnlineWorkers",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "TotalConcurrency",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Pending",
+          "Type": "int",
+          "Description": ""
+        }
+      ]
+    },
+    {
       "Name": "PagedResponse`1",
       "Kind": "record",
       "Summary": "Paged list.",
@@ -1305,6 +2231,127 @@
         {
           "Name": "Commands",
           "Type": "IReadOnlyList<WorkerCommandResponse>",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "QueueStatusResponse",
+      "Kind": "record",
+      "Summary": "Current queue usage against one threshold.",
+      "Members": [
+        {
+          "Name": "ThresholdId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "Pending",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "MaxPending",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "UsagePercent",
+          "Type": "double",
+          "Description": ""
+        },
+        {
+          "Name": "Level",
+          "Type": "QueueLevel",
+          "Description": ""
+        },
+        {
+          "Name": "Enabled",
+          "Type": "bool",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Name": "QueueThresholdRequest",
+      "Kind": "record",
+      "Summary": "Create or update a queue threshold.",
+      "Members": [
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": "Job type, or `*` for the total of all types."
+        },
+        {
+          "Name": "MaxPending",
+          "Type": "int",
+          "Description": "Pending jobs at which new jobs are rejected (1 - 10,000,000)."
+        },
+        {
+          "Name": "WarnPercent",
+          "Type": "int",
+          "Description": "Percentage of MaxPending that raises a near-limit alert (1-99)."
+        },
+        {
+          "Name": "Enabled",
+          "Type": "bool",
+          "Description": "Apply this threshold."
+        },
+        {
+          "Name": "Version",
+          "Type": "long?",
+          "Description": "Required on update."
+        }
+      ]
+    },
+    {
+      "Name": "QueueThresholdResponse",
+      "Kind": "record",
+      "Summary": "Queue threshold.",
+      "Members": [
+        {
+          "Name": "ThresholdId",
+          "Type": "Guid",
+          "Description": ""
+        },
+        {
+          "Name": "JobType",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "MaxPending",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "WarnPercent",
+          "Type": "int",
+          "Description": ""
+        },
+        {
+          "Name": "Enabled",
+          "Type": "bool",
+          "Description": ""
+        },
+        {
+          "Name": "UpdatedBy",
+          "Type": "string",
+          "Description": ""
+        },
+        {
+          "Name": "UpdatedUtc",
+          "Type": "DateTimeOffset",
+          "Description": ""
+        },
+        {
+          "Name": "Version",
+          "Type": "long",
           "Description": ""
         }
       ]
@@ -1712,6 +2759,102 @@
       ]
     },
     {
+      "Name": "AlertEventType",
+      "Kind": "enum",
+      "Summary": "Event that can raise an alert through MessageHub.",
+      "Members": [
+        {
+          "Name": "AnomalyDetected",
+          "Type": "0",
+          "Description": "Anomaly detection found something at or above `Anomaly:MinAlertSeverity`."
+        },
+        {
+          "Name": "WorkerRegistered",
+          "Type": "1",
+          "Description": "A worker registered (or registered again)."
+        },
+        {
+          "Name": "WorkerUnregistered",
+          "Type": "2",
+          "Description": "A worker unregistered itself or was removed by an administrator."
+        },
+        {
+          "Name": "WorkerLost",
+          "Type": "3",
+          "Description": "A worker stopped sending heartbeats without unregistering; its jobs were re-distributed."
+        },
+        {
+          "Name": "LeaderChanged",
+          "Type": "4",
+          "Description": "Another server instance became the primary (leader)."
+        },
+        {
+          "Name": "QueueNearLimit",
+          "Type": "5",
+          "Description": "Pending jobs reached the warning percentage of a queue threshold."
+        },
+        {
+          "Name": "QueueOverLimit",
+          "Type": "6",
+          "Description": "Pending jobs reached the limit of a queue threshold; new jobs of that type are rejected."
+        },
+        {
+          "Name": "Test",
+          "Type": "7",
+          "Description": "Test message sent from the recipient screen."
+        }
+      ]
+    },
+    {
+      "Name": "AlertSendStatus",
+      "Kind": "enum",
+      "Summary": "Delivery state of one alert to one recipient.",
+      "Members": [
+        {
+          "Name": "Pending",
+          "Type": "0",
+          "Description": "Waiting to be sent (or waiting for a retry)."
+        },
+        {
+          "Name": "Sent",
+          "Type": "1",
+          "Description": "Accepted by MessageHub."
+        },
+        {
+          "Name": "Failed",
+          "Type": "2",
+          "Description": "Gave up: permanent error or too many attempts."
+        },
+        {
+          "Name": "Skipped",
+          "Type": "3",
+          "Description": "Not sent: recipient disabled or deleted, or MessageHub not configured."
+        }
+      ]
+    },
+    {
+      "Name": "AlertSeverity",
+      "Kind": "enum",
+      "Summary": "Alert severity (same values as anomaly severity).",
+      "Members": [
+        {
+          "Name": "Info",
+          "Type": "0",
+          "Description": ""
+        },
+        {
+          "Name": "Warning",
+          "Type": "1",
+          "Description": ""
+        },
+        {
+          "Name": "Critical",
+          "Type": "2",
+          "Description": ""
+        }
+      ]
+    },
+    {
       "Name": "AttemptOutcome",
       "Kind": "enum",
       "Summary": "Outcome reported by a worker for one execution attempt.",
@@ -1792,6 +2935,28 @@
           "Name": "Cancelled",
           "Type": "6",
           "Description": "Cancelled."
+        }
+      ]
+    },
+    {
+      "Name": "QueueLevel",
+      "Kind": "enum",
+      "Summary": "Queue usage compared with its threshold.",
+      "Members": [
+        {
+          "Name": "Normal",
+          "Type": "0",
+          "Description": ""
+        },
+        {
+          "Name": "NearLimit",
+          "Type": "1",
+          "Description": ""
+        },
+        {
+          "Name": "OverLimit",
+          "Type": "2",
+          "Description": ""
         }
       ]
     },

@@ -1,0 +1,177 @@
+@page "/jobs/new"
+@attribute [Authorize]
+@implements IDisposable
+@* S03 Submit a job, with an optional what-if risk check before submitting (creates nothing). *@
+<PageTitle>@L["Menu.SubmitJob"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.JobCreate">
+    <FormTemplate Title="@L["Menu.SubmitJob"]" Description="@L["Job.Submit.Description"]" Breadcrumbs="_breadcrumbs" Mode="FormMode.New" Model="_model"
+                  SaveText="@L["Job.Submit.Save"]" SavePermission="@AppPermissions.JobCreate" OnSave="SaveAsync" OnCancel="@(() => Nav.NavigateTo("jobs"))">
+        <Notice>
+            @if (_queueFull is not null)
+            {
+                <Alert Level="AlertLevel.Danger" Title="@L["Job.Submit.QueueFullTitle"]">@_queueFull</Alert>
+            }
+        </Notice>
+        <ChildContent>
+            <FormSection Title="@L["Job.Submit.Section.Job"]" Description="@L["Job.Submit.Section.JobHint"]">
+                <FieldGrid Columns="2">
+                    <FormField Label="@L["Job.JobType"]" InputId="jobtype" For="() => _model.JobType" Required Hint="@L["Job.Submit.JobTypeHint"]">
+                        <DxComboBox InputId="jobtype" Data="_jobTypes" @bind-Value="_model.JobType" AllowUserInput="true"
+                                    SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains" />
+                    </FormField>
+                    <FormField Label="@L["Job.Priority"]" InputId="priority" For="() => _model.Priority" Hint="@L["Job.Submit.PriorityHint"]">
+                        <DxSpinEdit InputId="priority" @bind-Value="_model.Priority" MinValue="0" MaxValue="100" />
+                    </FormField>
+                    <FormField Label="@L["Job.Payload"]" InputId="payload" For="() => _model.Payload" Full Hint="@L["Job.Submit.PayloadHint"]">
+                        <DxMemo InputId="payload" @bind-Text="_model.Payload" Rows="8" ResizeMode="MemoResizeMode.Vertical" CssClass="mono" />
+                    </FormField>
+                </FieldGrid>
+            </FormSection>
+
+            <FormSection Title="@L["Job.Submit.Section.Target"]" Description="@L["Job.Submit.Section.TargetHint"]">
+                <FieldGrid Columns="2">
+                    <FormField Label="@L["Job.TargetWorker"]" InputId="target" For="() => _model.TargetWorkerId">
+                        <DxComboBox InputId="target" Data="_workers" @bind-Value="_model.TargetWorkerId" NullText="@L["Job.Submit.AnyWorker"]"
+                                    ValueFieldName="@nameof(ListOption<Guid?>.Value)" TextFieldName="@nameof(ListOption<Guid?>.Text)"
+                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    </FormField>
+                    <Field Label="@L["Job.StrictTarget"]" InputId="strict" Hint="@L["Job.Submit.StrictHint"]">
+                        <DxCheckBox InputId="strict" @bind-Checked="_model.StrictTarget" CheckType="CheckType.Switch">@(_model.StrictTarget ? L["Common.Yes"] : L["Common.No"])</DxCheckBox>
+                    </Field>
+                </FieldGrid>
+            </FormSection>
+
+            <FormSection Title="@L["Job.Submit.Section.Run"]" Description="@L["Job.Submit.Section.RunHint"]">
+                <FieldGrid Columns="2">
+                    <FormField Label="@L["Job.MaxAttempts"]" InputId="attempts" For="() => _model.MaxAttempts" Hint="@L["Job.Submit.DefaultHint"]">
+                        <DxSpinEdit InputId="attempts" @bind-Value="_model.MaxAttempts" MinValue="1" MaxValue="20" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    </FormField>
+                    <FormField Label="@L["Job.TimeoutSeconds"]" InputId="timeout" For="() => _model.TimeoutSeconds" Hint="@L["Job.Submit.DefaultHint"]">
+                        <DxSpinEdit InputId="timeout" @bind-Value="_model.TimeoutSeconds" MinValue="1" MaxValue="86400" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    </FormField>
+                    <FormField Label="@L["Job.RunAt"]" InputId="runat" For="() => _model.RunAtLocal" Hint="@L["Job.Submit.RunAtHint"]">
+                        <DxDateEdit InputId="runat" @bind-Date="_model.RunAtLocal" TimeSectionVisible="true" DisplayFormat="dd/MM/yyyy HH:mm" Format="dd/MM/yyyy HH:mm"
+                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    </FormField>
+                    <FormField Label="@L["Job.IdempotencyKey"]" InputId="idem" For="() => _model.IdempotencyKey" Hint="@L["Job.Submit.IdempotencyHint"]">
+                        <DxTextBox InputId="idem" @bind-Text="_model.IdempotencyKey" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    </FormField>
+                    <FormField Label="@L["Job.Tags"]" InputId="tags" For="() => _model.Tags" Hint="@L["Job.Submit.TagsHint"]">
+                        <DxTextBox InputId="tags" @bind-Text="_model.Tags" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    </FormField>
+                    <Field Label="@L["Job.Sensitive"]" InputId="sensitive" Hint="@L["Job.Submit.SensitiveHint"]">
+                        <DxCheckBox InputId="sensitive" @bind-Checked="_model.Sensitive" CheckType="CheckType.Switch">@(_model.Sensitive ? L["Common.Yes"] : L["Common.No"])</DxCheckBox>
+                    </Field>
+                </FieldGrid>
+            </FormSection>
+
+            <FormSection Title="@L["Job.Submit.Section.Risk"]" Description="@L["Job.Submit.Section.RiskHint"]">
+                <div class="page-stack">
+                    <div><AppButton Text="@L["Job.Submit.Assess"]" Icon="shield" Busy="_assessing" Disabled="@string.IsNullOrWhiteSpace(_model.JobType)" OnClick="AssessAsync" /></div>
+                    @if (_risk is not null || _riskError is not null)
+                    {
+                        <RiskView Risk="_risk" Error="@_riskError" />
+                    }
+                </div>
+            </FormSection>
+        </ChildContent>
+    </FormTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private ILogger<JobSubmit> Logger { get; set; } = default!;
+
+    [SupplyParameterFromQuery(Name = "workerId")] public Guid? WorkerQuery { get; set; }
+
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Jobs"), "jobs"), new(AppText.Get("Menu.SubmitJob"))];
+    private readonly CancellationTokenSource _cts = new();
+    // One key per form: pressing Save again after a lost response replays the first result instead of creating a second job.
+    private readonly string _idempotencyKey = Guid.NewGuid().ToString("N");
+    private readonly JobSubmitModel _model = new();
+    private List<string> _jobTypes = [];
+    private List<ListOption<Guid?>> _workers = [];
+    private RiskAssessment? _risk;
+    private string? _riskError;
+    private string? _queueFull;
+    private bool _assessing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _model.TargetWorkerId = WorkerQuery;
+        try
+        {
+            var types = Api.GetJobTypesAsync(_cts.Token);
+            var workers = Api.ListWorkersAsync(false, _cts.Token);
+            _jobTypes = (await types).Select(t => t.JobType).Order(StringComparer.Ordinal).ToList();
+            _workers = (await workers).Where(w => w.Status == WorkerStatus.Online).OrderBy(w => w.Name, StringComparer.CurrentCulture)
+                .Select(w => new ListOption<Guid?>(w.WorkerId, w.Name)).ToList();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
+        {
+            // Pickers need job.view / worker.view; without them the user types the job type.
+        }
+    }
+
+    private async Task AssessAsync()
+    {
+        _assessing = true;
+        _riskError = null;
+        try
+        {
+            _risk = await Api.AssessSubmissionAsync(_model.JobType!.Trim(), _model.TargetWorkerId, _model.StrictTarget, _model.TimeoutSeconds, _model.Sensitive, _cts.Token);
+        }
+        catch (ApiException ex)
+        {
+            _risk = null;
+            _riskError = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _risk = null;
+            _riskError = L["Common.NetworkError"];
+        }
+        finally
+        {
+            _assessing = false;
+        }
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        _queueFull = null;
+        try
+        {
+            var result = await Splash.RunAsync(L["Job.Submit.Saving"], (_, ct) => Api.SubmitAsync(_model.ToRequest(), _idempotencyKey, ct), canCancel: false);
+            Toasts.Success(result.Duplicate ? L["Job.Submit.Duplicate", Fmt.Short(result.JobId)] : L["Job.Submit.Saved", Fmt.Short(result.JobId)]);
+            Nav.NavigateTo($"jobs/{result.JobId}");
+            return true;
+        }
+        catch (ApiException ex) when (ex.ErrorCode == "queue_full")
+        {
+            _queueFull = L["Job.Submit.QueueFull", ex.Message];
+            return false;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+            return false;
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.LogWarning(ex, "Submit job failed: network error.");
+            Toasts.Error(L["Common.NetworkError"]);
+            return false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

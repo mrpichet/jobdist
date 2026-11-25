@@ -131,3 +131,93 @@ BEGIN
     );
 END
 GO
+-- ---------------------------------------------------------------------------------------------
+-- Web console additions (2026-11): fencing term, alert recipients, alert outbox, queue thresholds, idempotency records.
+-- ---------------------------------------------------------------------------------------------
+IF COL_LENGTH(N'dbo.LeaderLeases', N'Term') IS NULL
+    ALTER TABLE dbo.LeaderLeases ADD Term BIGINT NOT NULL CONSTRAINT DF_LeaderLeases_Term DEFAULT 0;
+GO
+IF OBJECT_ID(N'dbo.AlertRecipients', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AlertRecipients
+    (
+        RecipientId      UNIQUEIDENTIFIER  NOT NULL CONSTRAINT PK_AlertRecipients PRIMARY KEY,
+        Name             NVARCHAR(200)     NOT NULL,
+        Channel          NVARCHAR(50)      NOT NULL,
+        AddressProtected NVARCHAR(MAX)     NOT NULL,
+        AddressMasked    NVARCHAR(600)     NOT NULL,
+        EventTypes       NVARCHAR(500)     NOT NULL,
+        MinSeverity      INT               NOT NULL,
+        Enabled          BIT               NOT NULL,
+        CreatedUtc       DATETIMEOFFSET(3) NOT NULL,
+        UpdatedUtc       DATETIMEOFFSET(3) NOT NULL,
+        UpdatedBy        NVARCHAR(200)     NULL,
+        Version          BIGINT            NOT NULL
+    );
+END
+GO
+IF OBJECT_ID(N'dbo.AlertOutbox', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AlertOutbox
+    (
+        OutboxId       BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_AlertOutbox PRIMARY KEY,
+        EventKey       NVARCHAR(300)     NOT NULL,
+        RecipientId    UNIQUEIDENTIFIER  NOT NULL,
+        RecipientName  NVARCHAR(200)     NULL,
+        Channel        NVARCHAR(50)      NOT NULL,
+        AddressMasked  NVARCHAR(600)     NOT NULL,
+        EventType      INT               NOT NULL,
+        Severity       INT               NOT NULL,
+        Subject        NVARCHAR(300)     NOT NULL,
+        Title          NVARCHAR(300)     NOT NULL,
+        Body           NVARCHAR(MAX)     NOT NULL,
+        OccurredUtc    DATETIMEOFFSET(3) NOT NULL,
+        CreatedUtc     DATETIMEOFFSET(3) NOT NULL,
+        Status         INT               NOT NULL,
+        Attempts       INT               NOT NULL CONSTRAINT DF_AlertOutbox_Attempts DEFAULT 0,
+        NextAttemptUtc DATETIMEOFFSET(3) NOT NULL,
+        LockedBy       NVARCHAR(200)     NULL,
+        LockedUntilUtc DATETIMEOFFSET(3) NULL,
+        SentUtc        DATETIMEOFFSET(3) NULL,
+        CorrelationId  NVARCHAR(100)     NULL,
+        LastError      NVARCHAR(1000)    NULL,
+        InstanceId     NVARCHAR(200)     NULL
+    );
+    CREATE UNIQUE INDEX UX_AlertOutbox_Event ON dbo.AlertOutbox(EventKey, RecipientId);
+    CREATE INDEX IX_AlertOutbox_Due ON dbo.AlertOutbox(NextAttemptUtc, OutboxId) WHERE Status = 0;
+    CREATE INDEX IX_AlertOutbox_Created ON dbo.AlertOutbox(CreatedUtc);
+END
+GO
+IF OBJECT_ID(N'dbo.QueueThresholds', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.QueueThresholds
+    (
+        ThresholdId UNIQUEIDENTIFIER  NOT NULL CONSTRAINT PK_QueueThresholds PRIMARY KEY,
+        JobType     NVARCHAR(100)     NOT NULL,
+        MaxPending  INT               NOT NULL,
+        WarnPercent INT               NOT NULL,
+        Enabled     BIT               NOT NULL,
+        UpdatedBy   NVARCHAR(200)     NULL,
+        UpdatedUtc  DATETIMEOFFSET(3) NOT NULL,
+        Version     BIGINT            NOT NULL
+    );
+    CREATE UNIQUE INDEX UX_QueueThresholds_Type ON dbo.QueueThresholds(JobType);
+END
+GO
+IF OBJECT_ID(N'dbo.IdempotencyRecords', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.IdempotencyRecords
+    (
+        Principal      NVARCHAR(200)     NOT NULL,
+        Route          NVARCHAR(300)     NOT NULL,
+        IdempotencyKey NVARCHAR(100)     NOT NULL,
+        RequestHash    CHAR(64)          NOT NULL,
+        StatusCode     INT               NOT NULL,
+        ResponseBody   NVARCHAR(MAX)     NULL,
+        CreatedUtc     DATETIMEOFFSET(3) NOT NULL,
+        ExpiresUtc     DATETIMEOFFSET(3) NOT NULL,
+        CONSTRAINT PK_IdempotencyRecords PRIMARY KEY (Principal, Route, IdempotencyKey)
+    );
+    CREATE INDEX IX_IdempotencyRecords_Expires ON dbo.IdempotencyRecords(ExpiresUtc);
+END
+GO

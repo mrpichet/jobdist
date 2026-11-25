@@ -1,0 +1,12 @@
+@inherits LayoutComponentBase
+@* MainLayout: the webcommon AppShell (side menu, status bar, user menu, AI assistant) + browser log shipping. *@
+<AppShell ShowErrorDetails="@Env.IsDevelopment()">
+    @Body
+</AppShell>
+
+@code {
+    [Inject] private IWebAssemblyHostEnvironment Env { get; set; } = default!;
+    [Inject] private ClientLogShipper Logs { get; set; } = default!;
+
+    protected override void OnInitialized() => Logs.Start();
+}

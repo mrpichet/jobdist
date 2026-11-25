@@ -1,0 +1,125 @@
+@page "/alerts/recipients"
+@attribute [Authorize]
+@implements IDisposable
+@* X2 Alert recipients (MessageHub channel + address, per event type and minimum severity). Addresses are stored encrypted and shown masked. *@
+<PageTitle>@L["Menu.Recipients"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.AlertView">
+    <ListTemplate TItem="RecipientRow" KeyFieldName="RecipientId"
+                  Title="@L["Menu.Recipients"]" Description="@L["Recipient.List.Description"]" Breadcrumbs="_breadcrumbs"
+                  Permissions="AppPermissions.Recipients"
+                  Items="_items" Loading="_loading" ErrorMessage="@_error" OnRetry="LoadAsync"
+                  NewText="@L["Recipient.New"]" OnNew="@(() => Nav.NavigateTo("alerts/recipients/new"))"
+                  OnView="@(r => Nav.NavigateTo($"alerts/recipients/{r.RecipientId}"))"
+                  OnEdit="@(r => Nav.NavigateTo($"alerts/recipients/{r.RecipientId}/edit"))"
+                  OnDelete="DeleteAsync" ItemName="@(r => r.Name)" RowActionsWidth="230px"
+                  ExportTitle="@L["Menu.Recipients"]">
+        <ExtraRowActions Context="row">
+            <AppButton Icon="send" IconOnly="true" Size="ButtonSize.Small" Title="@L["Recipient.Test"]" Permission="@AppPermissions.AlertManage" OnClick="@(() => TestAsync(row))" />
+        </ExtraRowActions>
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.Name)" Caption="@L["Recipient.Name"]" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.Channel)" Caption="@L["Recipient.Channel"]" Width="120px" />
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.Address)" Caption="@L["Recipient.Address"]" Width="170px" />
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.Events)" Caption="@L["Recipient.Events"]" MinWidth="220" />
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.MinSeverityText)" Caption="@L["Recipient.MinSeverity"]" Width="130px" />
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.EnabledText)" Caption="@L["Common.Status"]" Width="120px">
+                <CellDisplayTemplate>
+                    @if (((RecipientRow)context.DataItem).Enabled)
+                    {
+                        <Badge Text="@L["Common.Enabled"]" Level="AlertLevel.Success" Icon="check" />
+                    }
+                    else
+                    {
+                        <Badge Text="@L["Common.Disabled"]" Level="AlertLevel.Warning" Icon="pause" />
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.Updated)" Caption="@L["Common.Updated"]" DisplayFormat="dd/MM/yyyy HH:mm" Width="150px" />
+            <DxGridDataColumn FieldName="@nameof(RecipientRow.UpdatedBy)" Caption="@L["Common.UpdatedBy"]" Width="130px" Visible="false" />
+        </Columns>
+    </ListTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.AlertsGroup")), new(AppText.Get("Menu.Recipients"))];
+    private readonly CancellationTokenSource _cts = new();
+    private IReadOnlyList<RecipientRow>? _items;
+    private bool _loading;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _items = (await Api.ListRecipientsAsync(_cts.Token)).OrderBy(r => r.Name, StringComparer.CurrentCulture).Select(r => new RecipientRow(r)).ToList();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteAsync(RecipientRow row)
+    {
+        try
+        {
+            await Splash.RunAsync(L["Common.Deleting"], (_, ct) => Api.DeleteRecipientAsync(row.RecipientId, row.Recipient.Version, ct), canCancel: false);
+            Toasts.Success(L["Recipient.Deleted", row.Name]);
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.IsConflict ? L["Common.Conflict"] : ex.Message);
+            if (ex.IsConflict) await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+        }
+    }
+
+    private async Task TestAsync(RecipientRow row)
+    {
+        try
+        {
+            var result = await Splash.RunAsync(L["Recipient.Testing"], (_, ct) => Api.TestRecipientAsync(row.RecipientId, Guid.NewGuid().ToString("N"), ct), canCancel: false);
+            if (result.Status == AlertSendStatus.Sent) Toasts.Success(L["Recipient.TestSent", row.Name]);
+            else Toasts.Error(L["Recipient.TestFailed", Fmt.SendStatus(result.Status), result.Error ?? ""]);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

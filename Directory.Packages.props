@@ -1,12 +1,18 @@
 <Project>
   <!-- Central package management: every package version lives here only. -->
   <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- external/webcommon (git submodule) pins package versions in its own .csproj, so CPM is off for projects in that folder only.
+         external/common has its own Directory.Packages.props, which MSBuild finds first. -->
+    <ManagePackageVersionsCentrally Condition="!$(MSBuildProjectDirectory.Replace('\', '/').Contains('/external/webcommon/'))">true</ManagePackageVersionsCentrally>
+    <!-- webcommon treats warnings as errors. Without a DevExpress license key on the build machine DevExpress reports DX1000/DX1001:
+         keep them visible as warnings but do not fail the jobdist build (install the key to remove them, see docs/INSTALLATION.md). -->
+    <WarningsNotAsErrors Condition="$(MSBuildProjectDirectory.Replace('\', '/').Contains('/external/webcommon/'))">$(WarningsNotAsErrors);DX1000;DX1001</WarningsNotAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <!-- Microsoft AI / MCP (official Microsoft + MCP C# SDK maintained with Microsoft) -->
     <PackageVersion Include="Microsoft.Extensions.AI" Version="11.0.1" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="11.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="11.0.1" />
     <PackageVersion Include="ModelContextProtocol" Version="2.4.0" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
     <!-- Data access: Dapper (explicitly requested) + SQL Server (Microsoft) + PostgreSQL (Npgsql) -->
@@ -15,6 +21,11 @@
     <PackageVersion Include="Npgsql" Version="10.0.4" />
     <!-- Microsoft extensions -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.1" />
+    <!-- Alert transport option Messaging:Transport=RabbitMq (official RabbitMQ .NET client) -->
+    <PackageVersion Include="RabbitMQ.Client" Version="7.1.2" />
+    <!-- API versioning (same library as AuthServer) and same-origin reverse proxy to AuthServer (Microsoft YARP) -->
+    <PackageVersion Include="Asp.Versioning.Mvc" Version="10.0.0" />
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.15" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.15" />

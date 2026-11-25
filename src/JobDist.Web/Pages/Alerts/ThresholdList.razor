@@ -1,0 +1,107 @@
+@page "/alerts/queue-thresholds"
+@attribute [Authorize]
+@implements IDisposable
+@* X6 Queue thresholds with current usage. Near the limit → QueueNearLimit alert; at the limit → QueueOverLimit alert and new jobs of that type are rejected (429). *@
+<PageTitle>@L["Menu.Thresholds"]</PageTitle>
+
+<RequirePermission Permission="@AppPermissions.AlertView">
+    <ListTemplate TItem="ThresholdRow" KeyFieldName="ThresholdId"
+                  Title="@L["Menu.Thresholds"]" Description="@L["Threshold.List.Description"]" Breadcrumbs="_breadcrumbs"
+                  Permissions="AppPermissions.Thresholds"
+                  Items="_items" Loading="_loading" ErrorMessage="@_error" OnRetry="LoadAsync"
+                  NewText="@L["Threshold.New"]" OnNew="@(() => Nav.NavigateTo("alerts/queue-thresholds/new"))"
+                  OnView="@(r => Nav.NavigateTo($"alerts/queue-thresholds/{r.ThresholdId}"))"
+                  OnEdit="@(r => Nav.NavigateTo($"alerts/queue-thresholds/{r.ThresholdId}/edit"))"
+                  OnDelete="DeleteAsync" ItemName="@(r => r.JobType)" ExportTitle="@L["Menu.Thresholds"]">
+        <HeaderActions>
+            <AppButton Text="@L["Common.Refresh"]" Icon="refresh" OnClick="LoadAsync" />
+        </HeaderActions>
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.JobType)" Caption="@L["Job.JobType"]" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.MaxPending)" Caption="@L["Threshold.MaxPending"]" DisplayFormat="N0" Width="140px" />
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.WarnPercent)" Caption="@L["Threshold.WarnPercent"]" Width="130px" />
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.Pending)" Caption="@L["Threshold.Pending"]" DisplayFormat="N0" Width="120px" />
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.UsagePercent)" Caption="@L["Threshold.Usage"]" DisplayFormat="0.0" Width="110px" />
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.LevelText)" Caption="@L["Threshold.Level"]" Width="140px">
+                <CellDisplayTemplate>
+                    @{ var l = ((ThresholdRow)context.DataItem).Level; }
+                    <Badge Text="@Fmt.Level(l)" Level="@(l == QueueLevel.OverLimit ? AlertLevel.Danger : l == QueueLevel.NearLimit ? AlertLevel.Warning : AlertLevel.Success)"
+                           Icon="@(l == QueueLevel.Normal ? "check" : "alert-triangle")" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.EnabledText)" Caption="@L["Common.Status"]" Width="110px" />
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.Updated)" Caption="@L["Common.Updated"]" DisplayFormat="dd/MM/yyyy HH:mm" Width="150px" />
+            <DxGridDataColumn FieldName="@nameof(ThresholdRow.UpdatedBy)" Caption="@L["Common.UpdatedBy"]" Width="130px" Visible="false" />
+        </Columns>
+    </ListTemplate>
+</RequirePermission>
+
+@code {
+    [Inject] private JobDistApi Api { get; set; } = default!;
+    [Inject] private SplashService Splash { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.AlertsGroup")), new(AppText.Get("Menu.Thresholds"))];
+    private readonly CancellationTokenSource _cts = new();
+    private IReadOnlyList<ThresholdRow>? _items;
+    private bool _loading;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var thresholds = Api.ListThresholdsAsync(_cts.Token);
+            List<QueueStatusResponse> usage;
+            try { usage = await Api.GetQueueStatusAsync(_cts.Token); }
+            catch (Exception ex) when (ex is ApiException or HttpRequestException) { usage = []; }
+            var byId = usage.ToDictionary(u => u.ThresholdId);
+            _items = (await thresholds).OrderBy(t => t.JobType == "*" ? "" : t.JobType, StringComparer.Ordinal).Select(t => new ThresholdRow(t, byId.GetValueOrDefault(t.ThresholdId))).ToList();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _error = L["Common.NetworkError"];
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteAsync(ThresholdRow row)
+    {
+        try
+        {
+            await Splash.RunAsync(L["Common.Deleting"], (_, ct) => Api.DeleteThresholdAsync(row.ThresholdId, row.Threshold.Version, ct), canCancel: false);
+            Toasts.Success(L["Threshold.Deleted", row.JobType]);
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Error(ex.IsConflict ? L["Common.Conflict"] : ex.Message);
+            if (ex.IsConflict) await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Error(L["Common.NetworkError"]);
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}
