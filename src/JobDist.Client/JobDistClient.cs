@@ -71,6 +71,10 @@ public sealed class JobDistApiException(HttpStatusCode status, string message) :
 /// </summary>
 public sealed class JobDistClient(HttpClient http, IOptions<JobDistClientOptions> options, ILogger<JobDistClient> logger) : IJobDistClient
 {
+    // Routes are pinned to api/v1: a server that no longer serves v1 answers 400 (unsupported version) instead of a silent change.
+    private static readonly System.Net.Http.Headers.ProductInfoHeaderValue SdkAgent =
+        new("JobDist.Client", typeof(JobDistClient).Assembly.GetName().Version?.ToString(3) ?? "0");
+
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
     private int _current;
 
@@ -80,7 +84,7 @@ public sealed class JobDistClient(HttpClient http, IOptions<JobDistClientOptions
         ArgumentNullException.ThrowIfNull(request);
         // Idempotency key makes the POST safe to retry against another server instance.
         var safe = request.IdempotencyKey is null ? request with { IdempotencyKey = Guid.NewGuid().ToString("N") } : request;
-        return SendAsync<SubmitJobResponse>(HttpMethod.Post, "api/jobs", safe, ct);
+        return SendAsync<SubmitJobResponse>(HttpMethod.Post, "api/v1/jobs", safe, ct);
     }
 
     /// <inheritdoc />
@@ -88,17 +92,17 @@ public sealed class JobDistClient(HttpClient http, IOptions<JobDistClientOptions
     {
         ArgumentNullException.ThrowIfNull(jobs);
         var safe = jobs.Select(j => j.IdempotencyKey is null ? j with { IdempotencyKey = Guid.NewGuid().ToString("N") } : j).ToList();
-        return SendAsync<IReadOnlyList<SubmitJobResponse>>(HttpMethod.Post, "api/jobs/batch", new SubmitJobBatchRequest(safe), ct);
+        return SendAsync<IReadOnlyList<SubmitJobResponse>>(HttpMethod.Post, "api/v1/jobs/batch", new SubmitJobBatchRequest(safe), ct);
     }
 
     /// <inheritdoc />
     public Task<JobStatusResponse> GetAsync(Guid jobId, CancellationToken ct = default) =>
-        SendAsync<JobStatusResponse>(HttpMethod.Get, $"api/jobs/{jobId}", null, ct);
+        SendAsync<JobStatusResponse>(HttpMethod.Get, $"api/v1/jobs/{jobId}", null, ct);
 
     /// <inheritdoc />
     public Task<PagedResponse<JobStatusResponse>> ListAsync(JobStatus? status = null, string? jobType = null, int skip = 0, int take = 100, CancellationToken ct = default)
     {
-        var query = $"api/jobs?skip={skip}&take={take}";
+        var query = $"api/v1/jobs?skip={skip}&take={take}";
         if (status is not null)
         {
             query += $"&status={status}";
@@ -112,15 +116,15 @@ public sealed class JobDistClient(HttpClient http, IOptions<JobDistClientOptions
 
     /// <inheritdoc />
     public Task<IReadOnlyList<JobAttemptResponse>> GetAttemptsAsync(Guid jobId, CancellationToken ct = default) =>
-        SendAsync<IReadOnlyList<JobAttemptResponse>>(HttpMethod.Get, $"api/jobs/{jobId}/attempts", null, ct);
+        SendAsync<IReadOnlyList<JobAttemptResponse>>(HttpMethod.Get, $"api/v1/jobs/{jobId}/attempts", null, ct);
 
     /// <inheritdoc />
     public Task<JobStatusResponse> ChangePriorityAsync(Guid jobId, int priority, CancellationToken ct = default) =>
-        SendAsync<JobStatusResponse>(HttpMethod.Patch, $"api/jobs/{jobId}/priority", new ChangePriorityRequest(priority), ct);
+        SendAsync<JobStatusResponse>(HttpMethod.Patch, $"api/v1/jobs/{jobId}/priority", new ChangePriorityRequest(priority), ct);
 
     /// <inheritdoc />
     public Task<JobStatusResponse> CancelAsync(Guid jobId, string? reason = null, CancellationToken ct = default) =>
-        SendAsync<JobStatusResponse>(HttpMethod.Post, $"api/jobs/{jobId}/cancel", new CancelJobRequest(reason), ct);
+        SendAsync<JobStatusResponse>(HttpMethod.Post, $"api/v1/jobs/{jobId}/cancel", new CancelJobRequest(reason), ct);
 
     /// <inheritdoc />
     public async Task<JobStatusResponse> WaitForCompletionAsync(Guid jobId, TimeSpan? pollInterval = null, CancellationToken ct = default)
@@ -157,6 +161,7 @@ public sealed class JobDistClient(HttpClient http, IOptions<JobDistClientOptions
             var baseUrl = new Uri(o.ServerUrls[index].TrimEnd('/') + "/");
             using var request = new HttpRequestMessage(method, new Uri(baseUrl, path));
             request.Headers.Add("X-Api-Key", o.ApiKey);
+            request.Headers.UserAgent.Add(SdkAgent); // lets operators see which SDK versions still call an API version before it is retired
             if (body is not null)
             {
                 request.Content = JsonContent.Create(body, options: Json);

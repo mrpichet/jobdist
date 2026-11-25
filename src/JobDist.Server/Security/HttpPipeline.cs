@@ -1,4 +1,5 @@
 using JobDist.Core.Services;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -136,5 +137,37 @@ public sealed class WorkerTokenFilter(WorkerRegistryService registry, WorkerRepo
             return;
         }
         await next().ConfigureAwait(false);
+    }
+}
+
+/// <summary>
+/// Records which API version each caller uses (metric <c>jobdist.api.calls</c>, tags <c>api.version</c> and <c>api.client</c>).
+/// The client tag is the JobDist SDK product token from <c>User-Agent</c> (<c>JobDist.Client/x.y.z</c>, <c>JobDist.Worker.Sdk/x.y.z</c>),
+/// <c>web</c> for a browser, otherwise <c>other</c>, so the tag stays low-cardinality. Use it to plan retiring a version.
+/// </summary>
+public sealed class ApiUsageMiddleware(RequestDelegate next, JobDist.Core.Observability.JobDistMetrics metrics)
+{
+    /// <summary>Counts <c>/api</c> calls, then continues.</summary>
+    public Task InvokeAsync(HttpContext context)
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            var version = context.Features.Get<IApiVersioningFeature>()?.RequestedApiVersion?.ToString() ?? "1.0";
+            metrics.ApiCall(version, Client(context.Request.Headers.UserAgent.ToString()));
+        }
+        return next(context);
+    }
+
+    /// <summary>Low-cardinality client tag from a User-Agent header.</summary>
+    public static string Client(string userAgent)
+    {
+        foreach (var token in userAgent.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.StartsWith("JobDist.", StringComparison.Ordinal) && token.Length <= 60 && token.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '/' or '-'))
+            {
+                return token;
+            }
+        }
+        return userAgent.Contains("Mozilla/", StringComparison.Ordinal) ? "web" : "other";
     }
 }

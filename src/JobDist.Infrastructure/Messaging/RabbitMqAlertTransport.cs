@@ -147,7 +147,7 @@ public sealed class RabbitMqOutboxRelayWorker(AlertOutboxProcessor processor, Ra
                 Persistent = true,
                 MessageId = $"{row.EventKey}:{row.RecipientId}",
                 ContentType = "text/plain",
-                Type = "jobdist.alert.v1"
+                Type = AlertMessageTypes.Current
             };
             // With confirmation tracking the call completes when the broker confirmed (throws when nacked / returned).
             await _channel.BasicPublishAsync(o.Exchange, o.Queue, mandatory: true, basicProperties: props,
@@ -165,6 +165,25 @@ public sealed class RabbitMqOutboxRelayWorker(AlertOutboxProcessor processor, Ra
             await _channel.DisposeAsync().ConfigureAwait(false);
         }
     }
+}
+
+/// <summary>
+/// Message contract of the alert queue. Body = outbox row id (text); the alert itself stays in the database (claim-check),
+/// so the message never carries alert content or addresses. A change to the body or its meaning gets a new type
+/// (<c>jobdist.alert.v2</c>); consumers keep accepting the previous type until every instance runs the new release.
+/// </summary>
+public static class AlertMessageTypes
+{
+    /// <summary>Type published by this release.</summary>
+    public const string Current = V1;
+
+    /// <summary>Body: decimal outbox row id.</summary>
+    public const string V1 = "jobdist.alert.v1";
+
+    private static readonly HashSet<string> Supported = new(StringComparer.Ordinal) { V1 };
+
+    /// <summary><c>true</c> for types this release can process. A missing type is treated as v1 (published before the type existed).</summary>
+    public static bool IsSupported(string? type) => string.IsNullOrEmpty(type) || Supported.Contains(type);
 }
 
 /// <summary>
@@ -192,6 +211,16 @@ public sealed class RabbitMqAlertConsumerWorker(AlertOutboxProcessor processor, 
                 {
                     try
                     {
+                        // Versioned message contract: an instance only handles the types it knows. During a rolling upgrade a
+                        // newer type is rejected without requeue (dead-letter queue); the outbox row stays reserved and the relay
+                        // publishes it again after RelayLockSeconds, so an instance that knows the type delivers it. Nothing is lost.
+                        if (!AlertMessageTypes.IsSupported(ea.BasicProperties.Type))
+                        {
+                            logger.LogWarning("Alert message {MessageId} has unsupported type {Type}; dead-lettered, the outbox will re-publish it.",
+                                ea.BasicProperties.MessageId, ea.BasicProperties.Type);
+                            await channel.BasicRejectAsync(ea.DeliveryTag, requeue: false, stoppingToken).ConfigureAwait(false);
+                            return;
+                        }
                         if (long.TryParse(Encoding.UTF8.GetString(ea.Body.Span), NumberStyles.None, CultureInfo.InvariantCulture, out var outboxId))
                         {
                             await processor.ProcessOneAsync(outboxId, stoppingToken).ConfigureAwait(false);

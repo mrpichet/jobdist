@@ -34,6 +34,12 @@ public sealed class MessageHubAlertOptions
 
     /// <summary>HTTP timeout of one send.</summary>
     [Range(1, 120)] public int TimeoutSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// Path prefix of MessageHub's REST API (default <c>api</c>, MessageHub has no versioned routes yet). When MessageHub adds
+    /// versioned routes, set e.g. <c>api/v1</c> without a code change.
+    /// </summary>
+    [RegularExpression(@"^[A-Za-z0-9._\-/]{1,50}$")] public string ApiBasePath { get; set; } = "api";
 }
 
 /// <summary>
@@ -71,7 +77,7 @@ public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOp
         {
             return new(AlertSendStatus.Skipped, false, null, "MessageHub is not configured.");
         }
-        if (Endpoint(o, "api/messages") is not { } endpoint)
+        if (Endpoint(o, $"{o.ApiBasePath.Trim('/')}/messages") is not { } endpoint)
         {
             return new(AlertSendStatus.Failed, false, null, "Alerts:MessageHub:BaseUrl is invalid or not https.");
         }
@@ -124,7 +130,7 @@ public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOp
             return cached.Item2;
         }
         var o = options.CurrentValue;
-        if (!IsConfigured || Endpoint(o, "api/messages/channels") is not { } endpoint)
+        if (!IsConfigured || Endpoint(o, $"{o.ApiBasePath.Trim('/')}/messages/channels") is not { } endpoint)
         {
             return [];
         }

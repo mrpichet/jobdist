@@ -32,6 +32,7 @@ public sealed class JobDistMetrics
     private Func<long> _queueDepth = () => 0;
     private Func<long> _workersOnline = () => 0;
     private Func<int> _isLeader = () => 0;
+    private readonly Counter<long> _apiCalls;
 
     /// <summary>Creates all instruments.</summary>
     /// <param name="meterFactory">DI meter factory.</param>
@@ -48,6 +49,7 @@ public sealed class JobDistMetrics
         _alerts = meter.CreateCounter<long>("jobdist.alerts.sent", "{alert}", "Alerts sent to administrators.");
         _rejectedReports = meter.CreateCounter<long>("jobdist.worker.reports.rejected", "{report}", "Stale or invalid worker reports.");
         _signatures = meter.CreateCounter<long>("jobdist.signatures.created", "{signature}", "Signatures created, by algorithm.");
+        _apiCalls = meter.CreateCounter<long>("jobdist.api.calls", "{request}", "API calls by API version and client (SDK name/version or 'other'); shows who still uses a version before it is retired.");
         _duration = meter.CreateHistogram<double>("jobdist.job.duration", "ms", "Execution time reported by workers.");
         _queueWait = meter.CreateHistogram<double>("jobdist.job.queue_wait", "ms", "Time from ready to assignment.");
         _cycle = meter.CreateHistogram<double>("jobdist.scheduler.cycle.duration", "ms", "Duration of one scheduling cycle.");
@@ -67,6 +69,12 @@ public sealed class JobDistMetrics
         _workersOnline = workersOnline;
         _isLeader = isLeader;
     }
+
+    /// <summary>Counts one API call (low-cardinality tags only).</summary>
+    /// <param name="apiVersion">Requested API version, e.g. <c>1.0</c>.</param>
+    /// <param name="client">SDK product/version such as <c>JobDist.Client/2.0.0</c>, or <c>web</c> / <c>other</c>.</param>
+    public void ApiCall(string apiVersion, string client) =>
+        _apiCalls.Add(1, new KeyValuePair<string, object?>("api.version", apiVersion), new KeyValuePair<string, object?>("api.client", client));
 
     public void JobSubmitted(string jobType, int count = 1) => _submitted.Add(count, new KeyValuePair<string, object?>("job.type", jobType));
     public void JobAssigned(string jobType, double queueWaitMs)
