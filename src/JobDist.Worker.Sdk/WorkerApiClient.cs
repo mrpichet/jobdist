@@ -30,6 +30,10 @@ public sealed class WorkerApiException(HttpStatusCode status, string message) : 
 /// </summary>
 public sealed class WorkerApiClient(HttpClient http, IOptions<JobDistWorkerOptions> options, ILogger<WorkerApiClient> logger)
 {
+    // Routes are pinned to api/v1: a server that no longer serves v1 answers 400 (unsupported version) instead of a silent change.
+    private static readonly System.Net.Http.Headers.ProductInfoHeaderValue SdkAgent =
+        new("JobDist.Worker.Sdk", typeof(WorkerApiClient).Assembly.GetName().Version?.ToString(3) ?? "0");
+
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
     private int _current;
 
@@ -46,7 +50,7 @@ public sealed class WorkerApiClient(HttpClient http, IOptions<JobDistWorkerOptio
     public async Task<RegisterWorkerResponse> RegisterAsync(RegisterWorkerRequest request, CancellationToken ct)
     {
         // Step 1: register (fleet API key only, no worker token yet).
-        var response = await SendAsync<RegisterWorkerResponse>(HttpMethod.Post, "api/workers/register", request, null, ct).ConfigureAwait(false);
+        var response = await SendAsync<RegisterWorkerResponse>(HttpMethod.Post, "api/v1/workers/register", request, null, ct).ConfigureAwait(false);
 
         // Step 2: keep the identity for the authenticated worker calls.
         WorkerId = response!.WorkerId;
@@ -57,21 +61,21 @@ public sealed class WorkerApiClient(HttpClient http, IOptions<JobDistWorkerOptio
     /// <summary>Unregisters the worker (graceful shutdown).</summary>
     /// <param name="ct">Cancellation token.</param>
     public Task UnregisterAsync(CancellationToken ct) =>
-        SendAsync<object>(HttpMethod.Delete, $"api/workers/{WorkerId}", null, null, ct);
+        SendAsync<object>(HttpMethod.Delete, $"api/v1/workers/{WorkerId}", null, null, ct);
 
     /// <summary>Sends a heartbeat.</summary>
     /// <param name="request">Load figures.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Server status and pending commands.</returns>
     public async Task<HeartbeatResponse> HeartbeatAsync(HeartbeatRequest request, CancellationToken ct) =>
-        (await SendAsync<HeartbeatResponse>(HttpMethod.Post, $"api/workers/{WorkerId}/heartbeat", request, null, ct).ConfigureAwait(false))!;
+        (await SendAsync<HeartbeatResponse>(HttpMethod.Post, $"api/v1/workers/{WorkerId}/heartbeat", request, null, ct).ConfigureAwait(false))!;
 
     /// <summary>Long-polls for assignments.</summary>
     /// <param name="request">Max jobs and wait time.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Assignments and commands.</returns>
     public async Task<PollResponse> PollAsync(PollRequest request, CancellationToken ct) =>
-        (await SendAsync<PollResponse>(HttpMethod.Post, $"api/workers/{WorkerId}/poll", request,
+        (await SendAsync<PollResponse>(HttpMethod.Post, $"api/v1/workers/{WorkerId}/poll", request,
             TimeSpan.FromSeconds(request.WaitSeconds) + options.Value.RequestTimeout, ct).ConfigureAwait(false))!;
 
     /// <summary>Reports that an attempt started.</summary>
@@ -81,7 +85,7 @@ public sealed class WorkerApiClient(HttpClient http, IOptions<JobDistWorkerOptio
     /// <returns>True when the job was cancelled meanwhile and must not run.</returns>
     public async Task<bool> StartedAsync(Guid jobId, Guid attemptId, CancellationToken ct)
     {
-        var r = await SendAsync<JsonElement>(HttpMethod.Post, $"api/workers/{WorkerId}/jobs/{jobId}/started", new JobStartedRequest(attemptId), null, ct).ConfigureAwait(false);
+        var r = await SendAsync<JsonElement>(HttpMethod.Post, $"api/v1/workers/{WorkerId}/jobs/{jobId}/started", new JobStartedRequest(attemptId), null, ct).ConfigureAwait(false);
         return r.ValueKind == JsonValueKind.Object && r.TryGetProperty("cancelRequested", out var c) && c.ValueKind == JsonValueKind.True;
     }
 
@@ -90,13 +94,13 @@ public sealed class WorkerApiClient(HttpClient http, IOptions<JobDistWorkerOptio
     /// <param name="report">Outcome.</param>
     /// <param name="ct">Cancellation token.</param>
     public Task CompletedAsync(Guid jobId, JobCompletedRequest report, CancellationToken ct) =>
-        SendAsync<JsonElement>(HttpMethod.Post, $"api/workers/{WorkerId}/jobs/{jobId}/completed", report, null, ct);
+        SendAsync<JsonElement>(HttpMethod.Post, $"api/v1/workers/{WorkerId}/jobs/{jobId}/completed", report, null, ct);
 
     /// <summary>Downloads the server's current public signing keys (anonymous endpoint).</summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Keys.</returns>
     public async Task<ServerKeysResponse> GetServerKeysAsync(CancellationToken ct) =>
-        (await SendAsync<ServerKeysResponse>(HttpMethod.Get, "api/keys", null, null, ct).ConfigureAwait(false))!;
+        (await SendAsync<ServerKeysResponse>(HttpMethod.Get, "api/v1/keys", null, null, ct).ConfigureAwait(false))!;
 
     /// <summary>
     /// Sends a request with fail-over: each configured server is tried once, starting with the last healthy one.
@@ -119,6 +123,7 @@ public sealed class WorkerApiClient(HttpClient http, IOptions<JobDistWorkerOptio
             var baseUrl = new Uri(o.ServerUrls[index].TrimEnd('/') + "/");
             using var request = new HttpRequestMessage(method, new Uri(baseUrl, path));
             request.Headers.Add("X-Api-Key", o.ApiKey);
+            request.Headers.UserAgent.Add(SdkAgent); // lets operators see which SDK versions still call an API version before it is retired
             if (_token is not null)
             {
                 request.Headers.Add("X-Worker-Token", _token);

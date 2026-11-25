@@ -267,3 +267,27 @@ public sealed class ConsoleFeatureTests
         return items;
     }
 }
+
+/// <summary>Version-change support: broker message types and API client tagging.</summary>
+[TestClass]
+public sealed class VersioningTests
+{
+    [TestMethod]
+    public void Alert_queue_accepts_known_and_legacy_types_only()
+    {
+        Assert.IsTrue(JobDist.Infrastructure.Messaging.AlertMessageTypes.IsSupported("jobdist.alert.v1"));
+        Assert.IsTrue(JobDist.Infrastructure.Messaging.AlertMessageTypes.IsSupported(null), "Messages published before types existed are v1.");
+        Assert.IsFalse(JobDist.Infrastructure.Messaging.AlertMessageTypes.IsSupported("jobdist.alert.v2"));
+        Assert.AreEqual("jobdist.alert.v1", JobDist.Infrastructure.Messaging.AlertMessageTypes.Current);
+    }
+
+    [TestMethod]
+    public void Api_client_tag_is_sdk_token_web_or_other()
+    {
+        Assert.AreEqual("JobDist.Client/2.0.0", ApiUsageMiddleware.Client("JobDist.Client/2.0.0"));
+        Assert.AreEqual("JobDist.Worker.Sdk/1.4.2", ApiUsageMiddleware.Client("JobDist.Worker.Sdk/1.4.2 dotnet/10"));
+        Assert.AreEqual("web", ApiUsageMiddleware.Client("Mozilla/5.0 (X11; Linux x86_64) Chrome/140"));
+        Assert.AreEqual("other", ApiUsageMiddleware.Client("curl/8.5"));
+        Assert.AreEqual("other", ApiUsageMiddleware.Client(""));
+    }
+}

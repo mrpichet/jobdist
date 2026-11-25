@@ -126,13 +126,17 @@ var authority = builder.Configuration["AuthServer:Authority"];
 var proxyAuthServer = authServerEnabled && Uri.TryCreate(authority, UriKind.Absolute, out _);
 if (proxyAuthServer)
 {
-    RouteConfig Route(string id, string path) => new()
+    // Forwarded to AuthServer's versioned routes (api/v1/...) as AuthServer recommends for new clients; when AuthServer
+    // ships v2, only the target pattern here changes, the browser keeps calling /api/auth and /api/account.
+    RouteConfig Route(string id, string path, string target) => new()
     {
         RouteId = id, ClusterId = "authserver", AuthorizationPolicy = "anonymous",
-        Match = new RouteMatch { Path = path }
+        Match = new RouteMatch { Path = path },
+        Transforms = [new Dictionary<string, string> { ["PathPattern"] = target }]
     };
     builder.Services.AddReverseProxy().LoadFromMemory(
-        [Route("authserver-auth", "/api/auth/{**rest}"), Route("authserver-account", "/api/account/{**rest}")],
+        [Route("authserver-auth", "/api/auth/{**rest}", "/api/v1/auth/{**rest}"),
+         Route("authserver-account", "/api/account/{**rest}", "/api/v1/account/{**rest}")],
         [new ClusterConfig
         {
             ClusterId = "authserver",
@@ -174,6 +178,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+app.UseMiddleware<ApiUsageMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

@@ -141,7 +141,7 @@ server ฟังที่ `127.0.0.1:8080` และ `127.0.0.1:8081` ให้�
 "Alerts": {
   "MaxAttempts": 10, "RetryBaseDelaySeconds": 5, "RetryMaxDelaySeconds": 900, "CircuitOpenDelaySeconds": 30,
   "RetentionDays": 90, "QueueCheckSeconds": 15, "QueueAlertCooldownMinutes": 30, "PendingCacheMilliseconds": 2000,
-  "MessageHub": { "Enabled": true, "BaseUrl": "https://messagehub.example.com", "ApiKey": "<จาก secret>", "Sign": true, "TimeoutSeconds": 10 }
+  "MessageHub": { "Enabled": true, "BaseUrl": "https://messagehub.example.com", "ApiKey": "<จาก secret>", "Sign": true, "TimeoutSeconds": 10, "ApiBasePath": "api" }
 },
 "Anomaly": { "AlertCooldownMinutes": 30, "MinAlertSeverity": "Warning" }
 ```
@@ -204,6 +204,7 @@ dotnet JobDist.Server.dll
 - API ย้ายไปที่ `api/v1/...` ส่วน `api/...` เดิมยังใช้ได้และเท่ากับ v1 SDK และ Worker เดิมไม่ต้องแก้
 - งานใหม่อาจถูกปฏิเสธด้วย 429 `queue_full` เมื่อมีการตั้งเกณฑ์คิว ระบบที่ส่งงานควรรอตาม `Retry-After` แล้วส่งใหม่
 - ตารางใหม่ถูกสร้างอัตโนมัติเมื่อ `AutoMigrate=true` สำรองฐานข้อมูลก่อนอัปเกรดเสมอ
+- ลำดับอัปเกรดที่ไม่ทำให้บริการหยุด: ฐานข้อมูล → server ทีละตัว → Worker/SDK (SDK ใหม่เรียก `api/v1` จึงต้องอัปเกรด server ก่อน) รายละเอียดและกฎการเปลี่ยนเวอร์ชันระหว่างบริการอยู่ใน [`docs/VERSIONING.md`](../VERSIONING.md)
 
 ## 11. ความปลอดภัย
 
