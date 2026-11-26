@@ -105,6 +105,7 @@ public static class DependencyInjection
 
         // Step 4: MessageHub client. Sends: timeout + circuit breaker, no retry (POST is not idempotent at MessageHub; the outbox
         // retries with back-off). Reads (channel list): timeout + 3 retries with jitter + circuit breaker.
+        services.AddSingleton<Http.UpstreamVersionMonitor>();
         services.AddSingleton<IAlertDeliveryClient, MessageHubDeliveryClient>();
         services.AddHttpClient(MessageHubDeliveryClient.SendClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5), AllowAutoRedirect = false })

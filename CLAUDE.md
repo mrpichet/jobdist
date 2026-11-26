@@ -18,7 +18,8 @@ after changing the API, then update this file if an endpoint, tool or SDK member
   The SDKs pin `api/v1/` and send `User-Agent: JobDist.Client/x.y.z` or `JobDist.Worker.Sdk/x.y.z`; metric `jobdist.api.calls`
   (tags `api.version`, `api.client`) shows who still calls a version. A breaking change ships as v2 and replaces v1.
   Compatible vs breaking rules (adding an exported enum value is breaking for old SDKs), rolling-upgrade order and the
-  per-interface map (RabbitMQ type `jobdist.alert.v1`, AuthServer proxy to `/api/v1`, MessageHub `ApiBasePath`): [`docs/VERSIONING.md`](docs/VERSIONING.md).
+  per-interface map (RabbitMQ type `jobdist.alert.v1`, AuthServer proxy to `/api/v1`, MessageHub `ApiBasePath` = `api/v1`): [`docs/VERSIONING.md`](docs/VERSIONING.md).
+  Upstream `Deprecation`/`Sunset` headers from AuthServer and MessageHub are logged once a day per path (`UpstreamVersionMonitor`).
 - **Auth, machines**: header `X-Api-Key: <key>`. Roles: `Admin`, `Submitter`, `Viewer`, `Worker`, `AiAgent`.
   Dev keys (from `src/JobDist.Server/appsettings.Development.json`, never use in production):
   `dev-admin-key-change-me`, `dev-submitter-key-change-me`, `dev-worker-key-change-me`, `dev-ai-agent-key-change-me`.

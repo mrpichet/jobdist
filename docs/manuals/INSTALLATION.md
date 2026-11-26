@@ -80,6 +80,8 @@ git submodule update --init --recursive    # external/common และ external/
 
 เว็บคอนโซลเรียก AuthServer ผ่าน proxy ใน JobDist Server เอง (`/api/auth/*`, `/api/account/*`) จึงไม่ต้องเปิด CORS ที่ AuthServer
 
+proxy แปลง path เป็น `/api/v1/auth/*`, `/api/v1/account/*` เพราะ AuthServer ไม่มี path ที่ไม่มีเลขเวอร์ชันแล้ว (ได้ 404) **ต้องเว้น `Auth:AuthServerBaseUrl` ใน `wwwroot/appsettings.json` ของเว็บให้ว่าง** ถ้าใส่ URL ของ AuthServer ตรง ๆ เว็บจะเรียก path เก่าและเข้าสู่ระบบไม่ได้
+
 ## 5. ตั้งค่า MessageHub
 
 1. ขอ API key ของ MessageHub สำหรับระบบ JobDist (role User ขึ้นไป)
@@ -141,7 +143,7 @@ server ฟังที่ `127.0.0.1:8080` และ `127.0.0.1:8081` ให้�
 "Alerts": {
   "MaxAttempts": 10, "RetryBaseDelaySeconds": 5, "RetryMaxDelaySeconds": 900, "CircuitOpenDelaySeconds": 30,
   "RetentionDays": 90, "QueueCheckSeconds": 15, "QueueAlertCooldownMinutes": 30, "PendingCacheMilliseconds": 2000,
-  "MessageHub": { "Enabled": true, "BaseUrl": "https://messagehub.example.com", "ApiKey": "<จาก secret>", "Sign": true, "TimeoutSeconds": 10, "ApiBasePath": "api" }
+  "MessageHub": { "Enabled": true, "BaseUrl": "https://messagehub.example.com", "ApiKey": "<จาก secret>", "Sign": true, "TimeoutSeconds": 10, "ApiBasePath": "api/v1" }
 },
 "Anomaly": { "AlertCooldownMinutes": 30, "MinAlertSeverity": "Warning" }
 ```

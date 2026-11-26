@@ -36,10 +36,10 @@ public sealed class MessageHubAlertOptions
     [Range(1, 120)] public int TimeoutSeconds { get; set; } = 10;
 
     /// <summary>
-    /// Path prefix of MessageHub's REST API (default <c>api</c>, MessageHub has no versioned routes yet). When MessageHub adds
-    /// versioned routes, set e.g. <c>api/v1</c> without a code change.
+    /// Path prefix of MessageHub's REST API (default <c>api/v1</c>). MessageHub's unversioned <c>/api/...</c> paths are deprecated
+    /// (sunset 2027-05-31); when MessageHub ships v2, set <c>api/v2</c> after checking its contract.
     /// </summary>
-    [RegularExpression(@"^[A-Za-z0-9._\-/]{1,50}$")] public string ApiBasePath { get; set; } = "api";
+    [RegularExpression(@"^[A-Za-z0-9._\-/]{1,50}$")] public string ApiBasePath { get; set; } = "api/v1";
 }
 
 /// <summary>
@@ -47,7 +47,7 @@ public sealed class MessageHubAlertOptions
 /// <c>{ channel, recipient, subject, body, sign }</c>. The URL comes from configuration only (no SSRF) and the API key is never logged.
 /// The send client has a timeout and a circuit breaker but no retry (POST is not idempotent at MessageHub; the outbox retries later).
 /// </summary>
-public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOptionsMonitor<MessageHubAlertOptions> options, TimeProvider time,
+public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOptionsMonitor<MessageHubAlertOptions> options, TimeProvider time, Http.UpstreamVersionMonitor versions,
     ILogger<MessageHubDeliveryClient> logger) : IAlertDeliveryClient
 {
     /// <summary>HttpClient for sends (timeout + circuit breaker).</summary>
@@ -92,6 +92,7 @@ public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOp
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(TimeSpan.FromSeconds(o.TimeoutSeconds));
             using var response = await httpFactory.CreateClient(SendClientName).SendAsync(request, cts.Token).ConfigureAwait(false);
+            versions.Observe("MessageHub", endpoint.AbsolutePath, response.Headers);
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<DeliveryResult>(cts.Token).ConfigureAwait(false);
@@ -106,8 +107,10 @@ public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOp
             // 400/401/403/404/422: our request or configuration is wrong - retrying will not help.
             var status = (int)response.StatusCode;
             var retryable = status >= 500 || response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.RequestTimeout;
-            logger.LogWarning("MessageHub rejected an alert: HTTP {Status}.", status);
-            return new(AlertSendStatus.Failed, retryable, null, $"MessageHub HTTP {status}.");
+            // MessageHub problem responses carry a stable "code" (decide on status + code, never on title/detail).
+            var code = await ReadProblemCodeAsync(response, cts.Token).ConfigureAwait(false);
+            logger.LogWarning("MessageHub rejected an alert: HTTP {Status} {Code}.", status, code ?? "-");
+            return new(AlertSendStatus.Failed, retryable, null, code is null ? $"MessageHub HTTP {status}." : $"MessageHub HTTP {status} {code}.");
         }
         catch (BrokenCircuitException)
         {
@@ -139,6 +142,7 @@ public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOp
             using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
             request.Headers.Add("X-Api-Key", o.ApiKey);
             using var response = await httpFactory.CreateClient(ReadClientName).SendAsync(request, ct).ConfigureAwait(false);
+            versions.Observe("MessageHub", endpoint.AbsolutePath, response.Headers);
             response.EnsureSuccessStatusCode();
             var list = await response.Content.ReadFromJsonAsync<List<string>>(ct).ConfigureAwait(false) ?? [];
             _channels = Tuple.Create(now, (IReadOnlyList<string>)list);
@@ -163,9 +167,26 @@ public sealed class MessageHubDeliveryClient(IHttpClientFactory httpFactory, IOp
         return endpoint;
     }
 
+    private static async Task<string?> ReadProblemCodeAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<Problem>(ct).ConfigureAwait(false);
+            var code = problem?.Code;
+            return code is { Length: > 0 and <= 64 } && code.All(c => char.IsAsciiLetterOrDigit(c) || c == '_') ? code : null;
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or NotSupportedException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>MessageHub problem details (only the stable <c>code</c>).</summary>
+    private sealed record Problem(string? Code);
+
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max];
 
-    /// <summary>Body of MessageHub <c>POST /api/messages</c> (channel is the enum name).</summary>
+    /// <summary>Body of MessageHub <c>POST /api/v1/messages</c> (<c>SendMessageRequest</c>) (channel is the enum name).</summary>
     private sealed record SendRequest(string Channel, string Recipient, string Subject, string Body, bool Sign);
 
     /// <summary>MessageHub <c>DeliveryResultDTO</c> (only the fields used here).</summary>
