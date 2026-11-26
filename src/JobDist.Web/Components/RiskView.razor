@@ -8,15 +8,14 @@
         </div>
         @if (r.Factors.Count > 0)
         {
-            <table class="simple-table">
-                <thead><tr><th>@L["Risk.Factor"]</th><th class="num">@L["Risk.Points"]</th><th>@L["Risk.Explanation"]</th></tr></thead>
-                <tbody>
-                    @foreach (var f in r.Factors)
-                    {
-                        <tr><td>@f.Factor</td><td class="num">@f.Points.ToString("N1")</td><td>@f.Explanation</td></tr>
-                    }
-                </tbody>
-            </table>
+            <AppGrid TItem="RiskFactorRow" Items="_factors" KeyFieldName="@nameof(RiskFactorRow.Index)"
+                     Caption="@L["Risk.Factor"]" ShowSearchBox="false" ShowGroupPanel="false">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(RiskFactorRow.Name)" Caption="@L["Risk.Factor"]" Width="200px" />
+                    <DxGridDataColumn FieldName="@nameof(RiskFactorRow.Points)" Caption="@L["Risk.Points"]" DisplayFormat="N1" Width="100px" />
+                    <DxGridDataColumn FieldName="@nameof(RiskFactorRow.Explanation)" Caption="@L["Risk.Explanation"]" MinWidth="200" />
+                </Columns>
+            </AppGrid>
         }
         else
         {
@@ -36,4 +35,14 @@ else
 @code {
     [Parameter] public RiskAssessment? Risk { get; set; }
     [Parameter] public string? Error { get; set; }
+
+    private RiskAssessment? _shown;
+    private List<RiskFactorRow> _factors = [];
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_shown, Risk)) return;
+        _shown = Risk;
+        _factors = Risk?.Factors.Select((f, i) => new RiskFactorRow(i, f)).ToList() ?? [];
+    }
 }

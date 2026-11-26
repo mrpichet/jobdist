@@ -1,0 +1,31 @@
+/* Same look as the webcommon home-page stat cards: design tokens only, no extra colors, shadows or animation. */
+.stat {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-4) var(--space-5);
+    color: var(--color-text);
+    text-decoration: none;
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-lg);
+}
+.stat--link:hover { border-color: var(--color-primary); }
+.stat__icon {
+    grid-row: span 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: var(--color-primary);
+    background: var(--color-selected-bg);
+    border-radius: var(--radius-md);
+}
+.stat__label { font-size: var(--font-size-sm); color: var(--color-text-muted); }
+.stat__value { font-size: var(--font-size-2xl); font-weight: var(--font-weight-semibold); color: var(--color-brand); font-variant-numeric: tabular-nums; }
+@media print {
+    .stat { background: var(--print-bg); border-color: var(--print-border); }
+    .stat__value { color: var(--print-text); }
+}

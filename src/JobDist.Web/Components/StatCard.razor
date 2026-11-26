@@ -1,0 +1,26 @@
+@* Number card in the webcommon home-page style (icon tile, label, value); a link when Href is set. *@
+@if (Href is null)
+{
+    <div class="stat" role="listitem">@Body</div>
+}
+else
+{
+    <a class="stat stat--link" role="listitem" href="@Href">@Body</a>
+}
+
+@code {
+    /// <summary>Label under the icon.</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    /// <summary>Formatted value.</summary>
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+    /// <summary>webcommon icon name.</summary>
+    [Parameter] public string Icon { get; set; } = "bar-chart";
+    /// <summary>Page to open on click (null = not clickable).</summary>
+    [Parameter] public string? Href { get; set; }
+
+    private RenderFragment Body => @<text>
+        <span class="stat__icon" aria-hidden="true"><Icon Name="@Icon" /></span>
+        <span class="stat__label">@Label</span>
+        <span class="stat__value">@Value</span>
+    </text>;
+}

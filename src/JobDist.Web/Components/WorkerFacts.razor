@@ -1,17 +1,17 @@
-@* Read-only key facts of a worker (S08-S10). *@
-<dl class="kv">
-    <dt>@L["Worker.Name"]</dt><dd>@Worker.Name</dd>
-    <dt>@L["Worker.Id"]</dt><dd class="mono">@Worker.WorkerId</dd>
-    <dt>@L["Worker.Status"]</dt><dd><WorkerStatusBadge Status="Worker.Status" /></dd>
-    <dt>@L["Worker.Load"]</dt><dd>@Worker.ActiveJobs / @Worker.MaxTotalConcurrency</dd>
-    <dt>@L["Worker.LastHeartbeat"]</dt><dd>@Fmt.Time(Worker.LastHeartbeatUtc)</dd>
+@* Read-only key facts of a worker (S08-S10), in the webcommon View-mode field layout. *@
+<FieldGrid Columns="2">
+    <FactField Label="@L["Worker.Name"]" Value="@Worker.Name" />
+    <FactField Label="@L["Worker.Id"]" Value="@Worker.WorkerId.ToString()" />
+    <FactField Label="@L["Worker.Status"]" Value="@Fmt.Status(Worker.Status)" />
+    <FactField Label="@L["Worker.Load"]" Value="@($"{Worker.ActiveJobs} / {Worker.MaxTotalConcurrency}")" />
+    <FactField Label="@L["Worker.LastHeartbeat"]" Value="@Fmt.Time(Worker.LastHeartbeatUtc)" />
     @if (Full)
     {
-        <dt>@L["Worker.Cpu"]</dt><dd>@Fmt.Percent(Worker.CpuUsagePercent)</dd>
-        <dt>@L["Worker.Memory"]</dt><dd>@Fmt.Percent(Worker.MemoryUsagePercent)</dd>
-        <dt>@L["Worker.OfflineCount"]</dt><dd>@Worker.OfflineCount</dd>
+        <FactField Label="@L["Worker.Cpu"]" Value="@Fmt.Percent(Worker.CpuUsagePercent)" />
+        <FactField Label="@L["Worker.Memory"]" Value="@Fmt.Percent(Worker.MemoryUsagePercent)" />
+        <FactField Label="@L["Worker.OfflineCount"]" Value="@Worker.OfflineCount.ToString()" />
     }
-</dl>
+</FieldGrid>
 
 @code {
     [Parameter, EditorRequired] public WorkerResponse Worker { get; set; } = default!;

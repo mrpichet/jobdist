@@ -33,16 +33,23 @@
                             }
                             else
                             {
-                                <table class="simple-table">
-                                    <thead><tr><th>#</th><th>@L["Job.Worker"]</th><th class="num">@L["Performance.Score"]</th><th class="num">@L["Performance.Load"]</th><th class="num">@L["Performance.Expected"]</th><th class="num">@L["Performance.SuccessProbability"]</th><th>@L["Performance.Reason"]</th></tr></thead>
-                                    <tbody>
-                                        @for (var i = 0; i < recs.Count; i++)
-                                        {
-                                            var r = recs[i];
-                                            <tr><td>@(i + 1)</td><td><a href="@($"workers/{r.WorkerId}")">@r.WorkerName</a></td><td class="num">@r.Score.ToString("N2")</td><td class="num">@Fmt.Percent(r.LoadRatio * 100)</td><td class="num">@Fmt.Duration(r.ExpectedDurationMs)</td><td class="num">@Fmt.Percent(r.SuccessProbability * 100)</td><td>@r.Reason</td></tr>
-                                        }
-                                    </tbody>
-                                </table>
+                                <DxGrid Data="recs" KeyFieldName="@nameof(RecommendationRow.Rank)" ShowAllRows="true" AllowSort="true" ColumnResizeMode="GridColumnResizeMode.NextColumn"
+                                        Attributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "rec-title" })">
+                                    <Columns>
+                                        <DxGridDataColumn FieldName="@nameof(RecommendationRow.Rank)" Caption="#" Width="60px" />
+                                        <DxGridDataColumn FieldName="@nameof(RecommendationRow.Worker)" Caption="@L["Job.Worker"]">
+                                            <CellDisplayTemplate>
+                                                @{ var row = (RecommendationRow)context.DataItem; }
+                                                <a href="@($"workers/{row.WorkerId}")">@row.Worker</a>
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                        <DxGridDataColumn FieldName="@nameof(RecommendationRow.Score)" Caption="@L["Performance.Score"]" DisplayFormat="N2" />
+                                        <DxGridDataColumn FieldName="@nameof(RecommendationRow.LoadPercent)" Caption="@L["Performance.Load"]" DisplayFormat="0.0 '%'" />
+                                        <DxGridDataColumn FieldName="@nameof(RecommendationRow.ExpectedText)" Caption="@L["Performance.Expected"]" />
+                                        <DxGridDataColumn FieldName="@nameof(RecommendationRow.SuccessPercent)" Caption="@L["Performance.SuccessProbability"]" DisplayFormat="0.0 '%'" />
+                                        <DxGridDataColumn FieldName="@nameof(RecommendationRow.Reason)" Caption="@L["Performance.Reason"]" MinWidth="200" />
+                                    </Columns>
+                                </DxGrid>
                             }
                         </section>
                     }
@@ -92,7 +99,7 @@
     private string? _jobType;
     private string? _reportedType;
     private List<PerformanceRow>? _rows;
-    private List<WorkerRecommendation>? _recommendations;
+    private List<RecommendationRow>? _recommendations;
     private DateTimeOffset? _generatedAt;
     private bool _busy;
     private string? _error;
@@ -120,7 +127,7 @@
                 var recs = type is null ? Task.FromResult<List<WorkerRecommendation>?>(null) : Api.GetRecommendationsAsync(type, 5, ct)!;
                 var names = (await workers).ToDictionary(w => w.WorkerId, w => w.Name);
                 var rows = (await stats).Select(s => new PerformanceRow(s, names.GetValueOrDefault(s.WorkerId, Fmt.Short(s.WorkerId)))).OrderBy(r => r.JobType, StringComparer.Ordinal).ThenBy(r => r.MeanMs).ToList();
-                return (rows, await recs);
+                return (rows, (await recs)?.Select((r, i) => new RecommendationRow(i + 1, r)).ToList());
             }, cancellationToken: _cts.Token);
             _reportedType = type;
             _generatedAt = DateTimeOffset.Now;

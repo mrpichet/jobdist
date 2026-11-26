@@ -139,3 +139,64 @@ public sealed record StatisticsRow(int Index, JobStatisticsRowResponse Row)
     public double AvgQueueWaitMs => Row.AvgQueueWaitMs;
     public double ThroughputPerHour => Row.ThroughputPerHour;
 }
+
+/// <summary>Row of a small "name: count" table (dashboard).</summary>
+public sealed record CountRow(string Key, string Text, int Count, JobStatus? Status = null);
+
+/// <summary>Row of a job's attempt history (S04).</summary>
+public sealed record AttemptRow(JobAttemptResponse Attempt)
+{
+    public Guid AttemptId => Attempt.AttemptId;
+    public int Number => Attempt.Attempt;
+    public Guid WorkerId => Attempt.WorkerId;
+    public string Worker => Attempt.WorkerName ?? Attempt.WorkerId.ToString()[..8];
+    public DateTime Assigned => Attempt.AssignedUtc.LocalDateTime;
+    public DateTime? Started => Attempt.StartedUtc?.LocalDateTime;
+    public DateTime? Finished => Attempt.FinishedUtc?.LocalDateTime;
+    public string QueueWaitText => Fmt.Duration(Attempt.QueueWaitMs);
+    public string DurationText => Fmt.Duration(Attempt.DurationMs);
+    public string OutcomeText => Fmt.Outcome(Attempt.Outcome);
+    public double Score => Attempt.SchedulerScore;
+    public string Error => Attempt.Error ?? "";
+}
+
+/// <summary>Row of a worker's capability list (S08).</summary>
+public sealed record CapabilityRow(WorkerCapabilityRequest Capability)
+{
+    public string JobType => Capability.JobType;
+    public int MaxConcurrency => Capability.MaxConcurrency;
+    public double SpeedFactor => Capability.SpeedFactor;
+}
+
+/// <summary>Row of a risk assessment's factors.</summary>
+public sealed record RiskFactorRow(int Index, RiskFactor Factor)
+{
+    public string Name => Factor.Factor;
+    public double Points => Factor.Points;
+    public string Explanation => Factor.Explanation;
+}
+
+/// <summary>Row of the worker recommendation table (S11).</summary>
+public sealed record RecommendationRow(int Rank, WorkerRecommendation Recommendation)
+{
+    public Guid WorkerId => Recommendation.WorkerId;
+    public string Worker => Recommendation.WorkerName;
+    public double Score => Recommendation.Score;
+    public double LoadPercent => Recommendation.LoadRatio * 100;
+    public string ExpectedText => Fmt.Duration(Recommendation.ExpectedDurationMs);
+    public double SuccessPercent => Recommendation.SuccessProbability * 100;
+    public string Reason => Recommendation.Reason;
+}
+
+/// <summary>Row of the import column guide (X3).</summary>
+public sealed record ImportColumnRow(string Header, string RequiredText, string Hint);
+
+/// <summary>Row of the import result (X3).</summary>
+public sealed record ImportResultRow(int Number, SubmitJobResponse Result)
+{
+    public Guid JobId => Result.JobId;
+    public string ShortId => Result.JobId.ToString()[..8];
+    public JobStatus Status => Result.Status;
+    public string StatusText => Fmt.Status(Result.Status);
+    public string DuplicateText => Localization.AppText.Get(Result.Duplicate ? "Common.Yes" : "Common.No");
+}
