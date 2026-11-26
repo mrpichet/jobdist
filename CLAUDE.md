@@ -25,7 +25,7 @@ after changing the API, then update this file if an endpoint, tool or SDK member
   `dev-admin-key-change-me`, `dev-submitter-key-change-me`, `dev-worker-key-change-me`, `dev-ai-agent-key-change-me`.
 - **Auth, people (web console)**: `Authorization: Bearer <access token>` from AuthServer (Application `jobdist`, client
   `jobdist-web`), accepted when `AuthServer:Authority` is set. The web signs in through the same-origin proxy
-  `/api/auth/*` and `/api/account/*`, which forwards to AuthServer.
+  `/api/v1/auth/*` and `/api/v1/account/*` (old `/api/auth/*`, `/api/account/*` still accepted), which forwards to AuthServer's `/api/v1/...`.
 - **Access rule** ("permission OR role"): each endpoint names a permission and an API-key role set. A Bearer token passes with
   the permission (or the AuthServer `admin` role); an API key passes with a role from the set.
   Role sets: Read = Viewer/Submitter/Admin; Submit = Submitter/Admin; Admin = Admin; WorkerOrAdmin = Worker/Admin;
