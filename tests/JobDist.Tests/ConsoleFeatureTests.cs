@@ -291,3 +291,104 @@ public sealed class VersioningTests
         Assert.AreEqual("other", ApiUsageMiddleware.Client(""));
     }
 }
+
+/// <summary>JobDist as a client of AuthServer and MessageHub: versioned paths, problem codes, deprecation headers.</summary>
+[TestClass]
+public sealed class UpstreamContractTests
+{
+    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(respond(request));
+        }
+    }
+
+    private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
+    private sealed class Monitor<T>(T value) : IOptionsMonitor<T>
+    {
+        public T CurrentValue => value;
+        public T Get(string? name) => value;
+        public IDisposable? OnChange(Action<T, string?> listener) => null;
+    }
+
+    private sealed class CountingLogger<T> : Microsoft.Extensions.Logging.ILogger<T>
+    {
+        public int Warnings { get; private set; }
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == Microsoft.Extensions.Logging.LogLevel.Warning)
+            {
+                Warnings++;
+            }
+        }
+    }
+
+    private static (JobDist.Infrastructure.Alerts.MessageHubDeliveryClient Client, StubHandler Handler, CountingLogger<JobDist.Infrastructure.Http.UpstreamVersionMonitor> MonitorLog, Microsoft.Extensions.Time.Testing.FakeTimeProvider Time)
+        Create(Func<HttpRequestMessage, HttpResponseMessage> respond)
+    {
+        var handler = new StubHandler(respond);
+        var time = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(TestHost.Start);
+        var monitorLog = new CountingLogger<JobDist.Infrastructure.Http.UpstreamVersionMonitor>();
+        var options = new JobDist.Infrastructure.Alerts.MessageHubAlertOptions { Enabled = true, BaseUrl = "https://messagehub.example.com", ApiKey = "test-key" };
+        var client = new JobDist.Infrastructure.Alerts.MessageHubDeliveryClient(new StubFactory(handler), new Monitor<JobDist.Infrastructure.Alerts.MessageHubAlertOptions>(options), time,
+            new JobDist.Infrastructure.Http.UpstreamVersionMonitor(time, monitorLog), Microsoft.Extensions.Logging.Abstractions.NullLogger<JobDist.Infrastructure.Alerts.MessageHubDeliveryClient>.Instance);
+        return (client, handler, monitorLog, time);
+    }
+
+    private static HttpResponseMessage Json(System.Net.HttpStatusCode status, string json) =>
+        new(status) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") };
+
+    [TestMethod]
+    public async Task MessageHub_send_uses_v1_path_and_maps_delivery_status()
+    {
+        var (client, handler, _, _) = Create(_ => Json(System.Net.HttpStatusCode.OK, "{\"correlationId\":\"c-1\",\"status\":\"Sent\",\"unknownField\":1}"));
+
+        var result = await client.SendAsync("Email", "ops@example.com", "subject", "body", CancellationToken.None);
+
+        Assert.AreEqual(AlertSendStatus.Sent, result.Status);
+        Assert.AreEqual("c-1", result.CorrelationId);
+        Assert.AreEqual("https://messagehub.example.com/api/v1/messages", handler.Requests.Single().RequestUri!.ToString());
+    }
+
+    [TestMethod]
+    public async Task MessageHub_problem_code_is_kept_and_4xx_is_not_retried()
+    {
+        var (client, _, _, _) = Create(_ => Json(System.Net.HttpStatusCode.BadRequest, "{\"status\":400,\"title\":\"x\",\"code\":\"VALIDATION_FAILED\"}"));
+
+        var result = await client.SendAsync("Email", "ops@example.com", "subject", "body", CancellationToken.None);
+
+        Assert.AreEqual(AlertSendStatus.Failed, result.Status);
+        Assert.IsFalse(result.Retryable);
+        StringAssert.Contains(result.Error, "VALIDATION_FAILED");
+    }
+
+    [TestMethod]
+    public async Task Deprecation_headers_are_logged_once_a_day()
+    {
+        var (client, _, monitorLog, time) = Create(_ =>
+        {
+            var r = Json(System.Net.HttpStatusCode.OK, "{\"status\":\"Sent\"}");
+            r.Headers.TryAddWithoutValidation("Deprecation", "@1764028800");
+            r.Headers.TryAddWithoutValidation("Sunset", "Mon, 31 May 2027 00:00:00 GMT");
+            r.Headers.TryAddWithoutValidation("Link", "</api/v2/messages>; rel=\"successor-version\"");
+            return r;
+        });
+
+        await client.SendAsync("Email", "a@example.com", "s", "b", CancellationToken.None);
+        await client.SendAsync("Email", "a@example.com", "s", "b", CancellationToken.None);
+        Assert.AreEqual(1, monitorLog.Warnings);
+        time.Advance(TimeSpan.FromDays(1));
+        await client.SendAsync("Email", "a@example.com", "s", "b", CancellationToken.None);
+        Assert.AreEqual(2, monitorLog.Warnings);
+    }
+}

@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -142,7 +143,17 @@ if (proxyAuthServer)
             ClusterId = "authserver",
             Destinations = new Dictionary<string, DestinationConfig> { ["primary"] = new() { Address = authority! } },
             HttpRequest = new Yarp.ReverseProxy.Forwarder.ForwarderRequestConfig { ActivityTimeout = TimeSpan.FromSeconds(30) }
-        }]);
+        }])
+        // AuthServer announces retirement of an API version with Deprecation / Sunset headers (its CLAUDE.md §1.1): log them.
+        .AddTransforms(t => t.AddResponseTransform(ctx =>
+        {
+            if (ctx.ProxyResponse is { } response)
+            {
+                ctx.HttpContext.RequestServices.GetRequiredService<JobDist.Infrastructure.Http.UpstreamVersionMonitor>()
+                    .Observe("AuthServer", response.RequestMessage?.RequestUri?.AbsolutePath ?? ctx.HttpContext.Request.Path, response.Headers);
+            }
+            return ValueTask.CompletedTask;
+        }));
 }
 
 // Step 8: MCP server over Streamable HTTP; stateless → any instance can serve any request (horizontal scale / HA).

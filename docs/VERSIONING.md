@@ -15,8 +15,8 @@
 | เว็บคอนโซล | เบราว์เซอร์ → JobDist | ฝังอยู่ใน server ออกพร้อมกันเสมอ ไฟล์มี fingerprint | เปิดหน้าใหม่ได้เวอร์ชันล่าสุด |
 | ข้อความ RabbitMQ | JobDist → JobDist | property `type` = `jobdist.alert.v1` เนื้อความเป็นเพียง id ของแถว outbox (claim-check) | type ที่ไม่รู้จัก ส่งเข้า dead-letter แล้ว outbox ส่งใหม่หลัง `RelayLockSeconds` ให้ instance ที่รู้จัก ไม่มีข้อความหาย |
 | ฐานข้อมูล | server หลายตัว | schema แบบเพิ่มอย่างเดียว (idempotent script) + `leaderleases.term` | server เวอร์ชันเก่าและใหม่รันพร้อมกันได้ระหว่าง rolling upgrade |
-| AuthServer | JobDist → AuthServer | proxy ส่งต่อ `/api/auth/*`, `/api/account/*` ไปที่ `/api/v1/...` ของ AuthServer ตรวจ JWT ด้วย JWKS (รีเฟรชทุก 10 นาที รองรับการหมุนกุญแจ) | AuthServer ออก v2: แก้ปลายทางใน proxy ที่เดียว เบราว์เซอร์ไม่ต้องเปลี่ยน |
-| MessageHub | JobDist → MessageHub | MessageHub ยังไม่มีเวอร์ชันใน URL ตั้ง `Alerts:MessageHub:ApiBasePath` (ค่าเริ่มต้น `api`) | MessageHub เพิ่ม `/api/v1`: เปลี่ยนค่าเป็น `api/v1` ไม่ต้องแก้โค้ด |
+| AuthServer | JobDist → AuthServer | AuthServer เหลือแต่ `api/v1/...` (path ไม่มีเลขได้ 404) proxy ส่งต่อ `/api/auth/*`, `/api/account/*` ไปที่ `/api/v1/...` จึงต้องเว้น `Auth:AuthServerBaseUrl` ของเว็บว่างไว้ ตรวจ JWT ด้วย JWKS (รีเฟรชทุก 10 นาที รองรับการหมุนกุญแจ) ถ้า AuthServer ส่ง header `Deprecation`/`Sunset` จะเขียน log เตือนวันละครั้ง | AuthServer ออก v2: แก้ปลายทางใน proxy ที่เดียว เบราว์เซอร์ไม่ต้องเปลี่ยน |
+| MessageHub | JobDist → MessageHub | เรียก `/api/v1/messages` และ `/api/v1/channels` (`Alerts:MessageHub:ApiBasePath` ค่าเริ่มต้น `api/v1`; path ไม่มีเลขของ MessageHub deprecated, sunset 2027-05-31) อ่าน `code` ใน problem response และเขียน log เตือนวันละครั้งเมื่อเจอ `Deprecation`/`Sunset` | MessageHub ออก v2: เปลี่ยนค่าเป็น `api/v2` หลังตรวจสัญญาแล้ว |
 | LogServer | JobDist → LogServer | `Common.Logging` ส่งที่ `/api/v1/logs` | อัปเดตผ่าน submodule `external/common` |
 | Submodule (`external/common`, `external/webcommon`) | ตอน build | ตรึง commit ไว้ใน repo | อัปเดตเมื่อพร้อม แล้ว build/test ใหม่ |
 
