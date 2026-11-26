@@ -78,9 +78,9 @@ git submodule update --init --recursive    # external/common และ external/
 4. **Role / Group**: สร้างบทบาทแล้วผูก permission ข้างต้น เช่น `jobdist-viewer`, `jobdist-operator`, `jobdist-admin` (ดูตัวอย่างในคู่มือการใช้งานหัวข้อ 10) แล้วกำหนดให้ผู้ใช้หรือกลุ่ม
 5. จดค่า **Issuer URL** ของ AuthServer ไว้ใช้เป็น `AuthServer:Authority`
 
-เว็บคอนโซลเรียก AuthServer ผ่าน proxy ใน JobDist Server เอง (`/api/auth/*`, `/api/account/*`) จึงไม่ต้องเปิด CORS ที่ AuthServer
+เว็บคอนโซลเรียก AuthServer ผ่าน proxy ใน JobDist Server เอง (`/api/v1/auth/*`, `/api/v1/account/*`) จึงไม่ต้องเปิด CORS ที่ AuthServer
 
-proxy แปลง path เป็น `/api/v1/auth/*`, `/api/v1/account/*` เพราะ AuthServer ไม่มี path ที่ไม่มีเลขเวอร์ชันแล้ว (ได้ 404) **ต้องเว้น `Auth:AuthServerBaseUrl` ใน `wwwroot/appsettings.json` ของเว็บให้ว่าง** ถ้าใส่ URL ของ AuthServer ตรง ๆ เว็บจะเรียก path เก่าและเข้าสู่ระบบไม่ได้
+แนะนำให้เว้น `Auth:AuthServerBaseUrl` ใน `wwwroot/appsettings.json` ของเว็บให้ว่าง (ใช้ proxy) ถ้าใส่ URL ของ AuthServer ตรง ๆ ต้องเพิ่ม origin ของ JobDist ใน `Cors:AllowedOrigins` ของ AuthServer ด้วย proxy ยังรับ path เก่า `/api/auth/*`, `/api/account/*` และแปลงเป็น `/api/v1/...` ให้ เพราะ AuthServer ไม่มี path ที่ไม่มีเลขเวอร์ชันแล้ว
 
 ## 5. ตั้งค่า MessageHub
 

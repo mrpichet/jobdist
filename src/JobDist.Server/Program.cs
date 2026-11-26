@@ -121,14 +121,15 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(origins)
     .WithHeaders("Content-Type", "Authorization", ApiKeyAuthenticationHandler.HeaderName, IdempotentAttribute.HeaderName, "api-version", "Mcp-Session-Id")
     .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")));
 
-// Step 7b: same-origin reverse proxy to AuthServer for the web console login (Q16): /api/auth/* and /api/account/*
-// are forwarded to AuthServer:Authority, so the browser never needs CORS to AuthServer.
+// Step 7b: same-origin reverse proxy to AuthServer for the web console login (Q16): /api/v1/auth/* and /api/v1/account/*
+// (webcommon) are forwarded to AuthServer:Authority, so the browser never needs CORS to AuthServer. The unversioned
+// /api/auth/* and /api/account/* (older webcommon builds) are still accepted and rewritten to AuthServer's /api/v1/...
 var authority = builder.Configuration["AuthServer:Authority"];
 var proxyAuthServer = authServerEnabled && Uri.TryCreate(authority, UriKind.Absolute, out _);
 if (proxyAuthServer)
 {
-    // Forwarded to AuthServer's versioned routes (api/v1/...) as AuthServer recommends for new clients; when AuthServer
-    // ships v2, only the target pattern here changes, the browser keeps calling /api/auth and /api/account.
+    // AuthServer only serves api/v1/... (unversioned paths are 404 there). When AuthServer ships v2, webcommon moves to it;
+    // until then these target patterns stay on v1.
     RouteConfig Route(string id, string path, string target) => new()
     {
         RouteId = id, ClusterId = "authserver", AuthorizationPolicy = "anonymous",
@@ -136,7 +137,9 @@ if (proxyAuthServer)
         Transforms = [new Dictionary<string, string> { ["PathPattern"] = target }]
     };
     builder.Services.AddReverseProxy().LoadFromMemory(
-        [Route("authserver-auth", "/api/auth/{**rest}", "/api/v1/auth/{**rest}"),
+        [Route("authserver-auth-v1", "/api/v1/auth/{**rest}", "/api/v1/auth/{**rest}"),
+         Route("authserver-account-v1", "/api/v1/account/{**rest}", "/api/v1/account/{**rest}"),
+         Route("authserver-auth", "/api/auth/{**rest}", "/api/v1/auth/{**rest}"),
          Route("authserver-account", "/api/account/{**rest}", "/api/v1/account/{**rest}")],
         [new ClusterConfig
         {
