@@ -38,12 +38,12 @@
                 </FormSection>
 
                 <FormSection Title="@L["Job.Detail.Section.Data"]">
-                    <dl class="kv">
-                        <dt>@L["Job.TargetWorker"]</dt><dd>@(_job.TargetWorkerId is { } t ? WorkerName(t) ?? Fmt.Short(t) : L["Job.Submit.AnyWorker"].Value) @(_job.StrictTarget ? $"({L["Job.StrictTarget"]})" : "")</dd>
-                        <dt>@L["Job.TimeoutSeconds"]</dt><dd>@_job.TimeoutSeconds.ToString("N0")</dd>
-                        <dt>@L["Job.Tags"]</dt><dd>@(_job.Tags.Count == 0 ? "-" : string.Join(", ", _job.Tags))</dd>
-                        <dt>@L["Job.Sensitive"]</dt><dd>@(_job.Sensitive ? L["Job.Detail.SensitiveHidden"] : L["Common.No"])</dd>
-                    </dl>
+                    <FieldGrid Columns="2">
+                        <FactField Label="@L["Job.TargetWorker"]" Value="@TargetText" />
+                        <FactField Label="@L["Job.TimeoutSeconds"]" Value="@_job.TimeoutSeconds.ToString("N0")" />
+                        <FactField Label="@L["Job.Tags"]" Value="@string.Join(", ", _job.Tags)" />
+                        <FactField Label="@L["Job.Sensitive"]" Value="@(_job.Sensitive ? L["Job.Detail.SensitiveHidden"].Value : L["Common.No"].Value)" />
+                    </FieldGrid>
                 </FormSection>
 
                 <FormSection Title="@L["Job.Detail.Section.Result"]">
@@ -53,10 +53,10 @@
                     }
                     else
                     {
-                        <dl class="kv">
-                            @if (_job.Result is not null) { <dt>@L["Job.Result"]</dt><dd class="mono">@_job.Result</dd> }
-                            @if (_job.LastError is not null) { <dt>@L["Job.LastError"]</dt><dd class="mono">@_job.LastError</dd> }
-                        </dl>
+                        <FieldGrid Columns="1">
+                            @if (_job.Result is not null) { <FactField Label="@L["Job.Result"]" Value="@_job.Result" Multiline="true" Full="true" /> }
+                            @if (_job.LastError is not null) { <FactField Label="@L["Job.LastError"]" Value="@_job.LastError" Multiline="true" Full="true" /> }
+                        </FieldGrid>
                     }
                 </FormSection>
 
@@ -71,28 +71,25 @@
                     }
                     else
                     {
-                        <div style="overflow-x:auto">
-                            <table class="simple-table">
-                                <thead>
-                                    <tr>
-                                        <th class="num">#</th><th>@L["Job.Worker"]</th><th>@L["Attempt.Assigned"]</th><th>@L["Job.Started"]</th><th>@L["Attempt.Finished"]</th>
-                                        <th class="num">@L["Attempt.QueueWait"]</th><th class="num">@L["Job.Duration"]</th><th>@L["Attempt.Outcome"]</th><th class="num">@L["Attempt.Score"]</th><th>@L["Job.LastError"]</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var a in _attempts.OrderBy(a => a.Attempt))
-                                    {
-                                        <tr>
-                                            <td class="num">@a.Attempt</td>
-                                            <td><a href="@($"workers/{a.WorkerId}")">@(a.WorkerName ?? Fmt.Short(a.WorkerId))</a></td>
-                                            <td>@Fmt.Time(a.AssignedUtc)</td><td>@Fmt.Time(a.StartedUtc)</td><td>@Fmt.Time(a.FinishedUtc)</td>
-                                            <td class="num">@Fmt.Duration(a.QueueWaitMs)</td><td class="num">@Fmt.Duration(a.DurationMs)</td>
-                                            <td>@Fmt.Outcome(a.Outcome)</td><td class="num">@a.SchedulerScore.ToString("N2")</td><td>@a.Error</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                        <AppGrid TItem="AttemptRow" Items="_attempts" KeyFieldName="@nameof(AttemptRow.AttemptId)" Caption="@L["Job.Detail.Section.Attempts"]" ShowGroupPanel="false">
+                            <Columns>
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.Number)" Caption="#" Width="60px" SortIndex="0" SortOrder="GridColumnSortOrder.Ascending" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.Worker)" Caption="@L["Job.Worker"]" Width="150px">
+                                    <CellDisplayTemplate>
+                                        @{ var row = (AttemptRow)context.DataItem; }
+                                        <a href="@($"workers/{row.WorkerId}")">@row.Worker</a>
+                                    </CellDisplayTemplate>
+                                </DxGridDataColumn>
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.Assigned)" Caption="@L["Attempt.Assigned"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.Started)" Caption="@L["Job.Started"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.Finished)" Caption="@L["Attempt.Finished"]" DisplayFormat="dd/MM/yyyy HH:mm:ss" Width="160px" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.QueueWaitText)" Caption="@L["Attempt.QueueWait"]" Width="110px" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.DurationText)" Caption="@L["Job.Duration"]" Width="110px" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.OutcomeText)" Caption="@L["Attempt.Outcome"]" Width="130px" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.Score)" Caption="@L["Attempt.Score"]" DisplayFormat="N2" Width="90px" />
+                                <DxGridDataColumn FieldName="@nameof(AttemptRow.Error)" Caption="@L["Job.LastError"]" MinWidth="200" />
+                            </Columns>
+                        </AppGrid>
                     }
                 </FormSection>
 
@@ -112,7 +109,7 @@
 
     private readonly CancellationTokenSource _cts = new();
     private JobStatusResponse? _job;
-    private List<JobAttemptResponse>? _attempts;
+    private List<AttemptRow>? _attempts;
     private Dictionary<Guid, string> _workers = [];
     private RiskAssessment? _risk;
     private string? _riskError;
@@ -124,6 +121,10 @@
     private EventCallback EditCallback => EventCallback.Factory.Create(this, () => Nav.NavigateTo($"jobs/{JobId}/edit"));
 
     private string? WorkerName(Guid? id) => id is { } g ? _workers.GetValueOrDefault(g) : null;
+
+    private string TargetText => _job!.TargetWorkerId is { } t
+        ? (WorkerName(t) ?? Fmt.Short(t)) + (_job.StrictTarget ? $" ({L["Job.StrictTarget"]})" : "")
+        : L["Job.Submit.AnyWorker"].Value;
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
@@ -161,7 +162,7 @@
         {
             _riskError = ex is ApiException a ? a.Message : L["Common.NetworkError"];
         }
-        _attempts = await attempts ?? [];
+        _attempts = (await attempts ?? []).Select(a => new AttemptRow(a)).ToList();
         _workers = (await workers)?.ToDictionary(w => w.WorkerId, w => w.Name) ?? _workers;
     }
 

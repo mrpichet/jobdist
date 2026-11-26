@@ -1,24 +1,24 @@
-@* Read-only key facts of a job (used by S04-S06). *@
-<dl class="kv">
-    <dt>@L["Job.Id"]</dt><dd class="mono">@Job.JobId</dd>
-    <dt>@L["Job.JobType"]</dt><dd>@Job.JobType</dd>
-    <dt>@L["Job.Status"]</dt><dd><JobStatusBadge Status="Job.Status" /></dd>
-    <dt>@L["Job.Priority"]</dt><dd>@Job.Priority</dd>
-    <dt>@L["Job.Attempt"]</dt><dd>@Job.Attempt / @Job.MaxAttempts</dd>
-    <dt>@L["Job.Worker"]</dt><dd>@(WorkerName ?? Fmt.Short(Job.AssignedWorkerId))</dd>
-    <dt>@L["Job.Created"]</dt><dd>@Fmt.Time(Job.CreatedUtc)</dd>
+@* Read-only key facts of a job (used by S04-S06), in the webcommon View-mode field layout. *@
+<FieldGrid Columns="2">
+    <FactField Label="@L["Job.Id"]" Value="@Job.JobId.ToString()" />
+    <FactField Label="@L["Job.JobType"]" Value="@Job.JobType" />
+    <FactField Label="@L["Job.Status"]" Value="@Fmt.Status(Job.Status)" />
+    <FactField Label="@L["Job.Priority"]" Value="@Job.Priority.ToString()" />
+    <FactField Label="@L["Job.Attempt"]" Value="@($"{Job.Attempt} / {Job.MaxAttempts}")" />
+    <FactField Label="@L["Job.Worker"]" Value="@(WorkerName ?? Fmt.Short(Job.AssignedWorkerId))" />
+    <FactField Label="@L["Job.Created"]" Value="@Fmt.Time(Job.CreatedUtc)" />
     @if (Full)
     {
-        <dt>@L["Job.RunAt"]</dt><dd>@Fmt.Time(Job.RunAtUtc)</dd>
-        <dt>@L["Job.Started"]</dt><dd>@Fmt.Time(Job.StartedUtc)</dd>
-        <dt>@L["Job.Completed"]</dt><dd>@Fmt.Time(Job.CompletedUtc)</dd>
-        <dt>@L["Job.Duration"]</dt><dd>@Fmt.Duration(Job.LastDurationMs)</dd>
+        <FactField Label="@L["Job.RunAt"]" Value="@Fmt.Time(Job.RunAtUtc)" />
+        <FactField Label="@L["Job.Started"]" Value="@Fmt.Time(Job.StartedUtc)" />
+        <FactField Label="@L["Job.Completed"]" Value="@Fmt.Time(Job.CompletedUtc)" />
+        <FactField Label="@L["Job.Duration"]" Value="@Fmt.Duration(Job.LastDurationMs)" />
         @if (Job.CancelReason is not null)
         {
-            <dt>@L["Job.CancelReason"]</dt><dd>@Job.CancelReason</dd>
+            <FactField Label="@L["Job.CancelReason"]" Value="@Job.CancelReason" Full="true" />
         }
     }
-</dl>
+</FieldGrid>
 
 @code {
     [Parameter, EditorRequired] public JobStatusResponse Job { get; set; } = default!;

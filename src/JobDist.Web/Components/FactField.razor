@@ -1,0 +1,31 @@
+@* Read-only value in the webcommon View-mode style: a labelled read-only editor inside a FieldGrid. *@
+<Field Label="@Label" InputId="@_id" Wide="Wide" Full="Full">
+    @if (Multiline)
+    {
+        <DxMemo InputId="@_id" Text="@Display" ReadOnly="true" Rows="@Rows" ResizeMode="MemoResizeMode.Vertical" CssClass="fact-field--mono" />
+    }
+    else
+    {
+        <DxTextBox InputId="@_id" Text="@Display" ReadOnly="true" />
+    }
+</Field>
+
+@code {
+    private static int _next;
+    private readonly string _id = $"fact-{Interlocked.Increment(ref _next)}";
+
+    /// <summary>Label.</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    /// <summary>Value shown; empty shows "-".</summary>
+    [Parameter] public string? Value { get; set; }
+    /// <summary>Several lines (result, error text).</summary>
+    [Parameter] public bool Multiline { get; set; }
+    /// <summary>Rows when Multiline.</summary>
+    [Parameter] public int Rows { get; set; } = 4;
+    /// <summary>Two columns wide.</summary>
+    [Parameter] public bool Wide { get; set; }
+    /// <summary>Full row.</summary>
+    [Parameter] public bool Full { get; set; }
+
+    private string Display => string.IsNullOrEmpty(Value) ? "-" : Value;
+}

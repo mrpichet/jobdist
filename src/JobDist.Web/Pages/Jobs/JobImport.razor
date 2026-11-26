@@ -23,15 +23,13 @@
                 <li>@L["Import.Step3"]</li>
                 <li>@L["Import.Step4"]</li>
             </ol>
-            <table class="simple-table">
-                <thead><tr><th>@L["Import.Column"]</th><th>@L["Import.Required"]</th><th>@L["Import.Meaning"]</th></tr></thead>
-                <tbody>
-                    @foreach (var c in _schema.Columns)
-                    {
-                        <tr><td>@c.Header</td><td>@(c.Required ? L["Common.Yes"] : L["Common.No"])</td><td>@c.Hint</td></tr>
-                    }
-                </tbody>
-            </table>
+            <AppGrid TItem="ImportColumnRow" Items="_columns" KeyFieldName="@nameof(ImportColumnRow.Header)" Caption="@L["Import.HowTitle"]" ShowSearchBox="false" ShowGroupPanel="false">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(ImportColumnRow.Header)" Caption="@L["Import.Column"]" Width="180px" />
+                    <DxGridDataColumn FieldName="@nameof(ImportColumnRow.RequiredText)" Caption="@L["Import.Required"]" Width="120px" />
+                    <DxGridDataColumn FieldName="@nameof(ImportColumnRow.Hint)" Caption="@L["Import.Meaning"]" MinWidth="200" />
+                </Columns>
+            </AppGrid>
         </Card>
 
         @if (_queueFull is not null)
@@ -44,19 +42,21 @@
             <Card Title="@L["Import.ResultTitle"]" Description="@L["Import.ResultSummary", results.Count(r => !r.Duplicate), results.Count(r => r.Duplicate)]">
                 <HeaderActions><AppButton Text="@L["Menu.Jobs"]" Icon="file-text" Href="jobs?status=Pending" Size="ButtonSize.Small" /></HeaderActions>
                 <ChildContent>
-                    <table class="simple-table">
-                        <thead><tr><th>#</th><th>@L["Job.Id"]</th><th>@L["Job.Status"]</th><th>@L["Import.Duplicate"]</th></tr></thead>
-                        <tbody>
-                            @foreach (var (r, i) in results.Take(200).Select((r, i) => (r, i)))
-                            {
-                                <tr><td>@(i + 1)</td><td><a href="@($"jobs/{r.JobId}")">@Fmt.Short(r.JobId)</a></td><td><JobStatusBadge Status="r.Status" /></td><td>@(r.Duplicate ? L["Common.Yes"] : L["Common.No"])</td></tr>
-                            }
-                        </tbody>
-                    </table>
-                    @if (results.Count > 200)
-                    {
-                        <p class="muted">@L["Import.MoreRows", results.Count - 200]</p>
-                    }
+                    <AppGrid TItem="ImportResultRow" Items="_resultRows" KeyFieldName="@nameof(ImportResultRow.Number)" Caption="@L["Import.ResultTitle"]" ShowGroupPanel="false">
+                        <Columns>
+                            <DxGridDataColumn FieldName="@nameof(ImportResultRow.Number)" Caption="#" Width="70px" />
+                            <DxGridDataColumn FieldName="@nameof(ImportResultRow.ShortId)" Caption="@L["Job.Id"]" Width="130px">
+                                <CellDisplayTemplate>
+                                    @{ var row = (ImportResultRow)context.DataItem; }
+                                    <a href="@($"jobs/{row.JobId}")">@row.ShortId</a>
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+                            <DxGridDataColumn FieldName="@nameof(ImportResultRow.StatusText)" Caption="@L["Job.Status"]" Width="150px">
+                                <CellDisplayTemplate><JobStatusBadge Status="@(((ImportResultRow)context.DataItem).Status)" /></CellDisplayTemplate>
+                            </DxGridDataColumn>
+                            <DxGridDataColumn FieldName="@nameof(ImportResultRow.DuplicateText)" Caption="@L["Import.Duplicate"]" Width="120px" />
+                        </Columns>
+                    </AppGrid>
                 </ChildContent>
             </Card>
         }
@@ -74,6 +74,8 @@
     private readonly IReadOnlyList<Breadcrumb> _breadcrumbs = [new(AppText.Get("Menu.Dashboard"), ""), new(AppText.Get("Menu.Jobs"), "jobs"), new(AppText.Get("Menu.ImportJobs"))];
     private ImportSchema<JobSubmitModel> _schema = default!;
     private List<SubmitJobResponse>? _results;
+    private List<ImportResultRow> _resultRows = [];
+    private List<ImportColumnRow> _columns = [];
     private string? _queueFull;
     private bool _open;
 
@@ -103,6 +105,7 @@
             ],
             DuplicateKey = m => m.IdempotencyKey
         };
+        _columns = _schema.Columns.Select(c => new ImportColumnRow(c.Header, L[c.Required ? "Common.Yes" : "Common.No"], c.Hint ?? "")).ToList();
     }
 
     private int? Int(string? v)
@@ -138,6 +141,7 @@
         try
         {
             _results = await Splash.RunAsync(L["Import.Saving", requests.Count], (_, ct) => Api.SubmitBatchAsync(requests, "import-" + hash, ct), canCancel: false);
+            _resultRows = _results.Select((r, i) => new ImportResultRow(i + 1, r)).ToList();
             return new ImportOutcome(_results.Count(r => !r.Duplicate), _results.Count(r => r.Duplicate) is var dup and > 0 ? [L["Import.DuplicatesSkipped", dup].Value] : []);
         }
         catch (ApiException ex) when (ex.ErrorCode == "queue_full")

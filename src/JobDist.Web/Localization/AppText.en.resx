@@ -134,7 +134,6 @@
   <data name="Import.Invalid.Guid" xml:space="preserve"><value>Must be a worker id (GUID)</value></data>
   <data name="Import.Invalid.Number" xml:space="preserve"><value>Must be a whole number</value></data>
   <data name="Import.Meaning" xml:space="preserve"><value>Meaning</value></data>
-  <data name="Import.MoreRows" xml:space="preserve"><value>and {0:N0} more</value></data>
   <data name="Import.Required" xml:space="preserve"><value>Required</value></data>
   <data name="Import.ResultSummary" xml:space="preserve"><value>{0:N0} created · {1:N0} already existed</value></data>
   <data name="Import.ResultTitle" xml:space="preserve"><value>Last import</value></data>

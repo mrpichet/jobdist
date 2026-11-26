@@ -25,29 +25,27 @@
                 </FormSection>
 
                 <FormSection Title="@L["Worker.Detail.Section.Machine"]">
-                    <dl class="kv">
-                        <dt>@L["Worker.CpuCores"]</dt><dd>@_worker.Spec.CpuCores</dd>
-                        <dt>@L["Worker.MemoryMb"]</dt><dd>@_worker.Spec.MemoryMb.ToString("N0") MB</dd>
-                        <dt>@L["Worker.Gpu"]</dt><dd>@_worker.Spec.GpuCount</dd>
-                        <dt>@L["Worker.Benchmark"]</dt><dd>@_worker.Spec.BenchmarkScore.ToString("N2")</dd>
-                        <dt>@L["Worker.Os"]</dt><dd>@_worker.Spec.Os</dd>
-                        <dt>@L["Worker.Version"]</dt><dd>@(_worker.Version ?? "-")</dd>
-                        <dt>@L["Worker.Pqc"]</dt><dd>@(_worker.SupportsPqc ? L["Common.Yes"] : L["Common.No"])</dd>
-                        <dt>@L["Worker.Tags"]</dt><dd>@(_worker.Tags.Count == 0 ? "-" : string.Join(", ", _worker.Tags))</dd>
-                        <dt>@L["Worker.Registered"]</dt><dd>@Fmt.Time(_worker.RegisteredUtc)</dd>
-                    </dl>
+                    <FieldGrid Columns="2">
+                        <FactField Label="@L["Worker.CpuCores"]" Value="@_worker!.Spec.CpuCores.ToString()" />
+                        <FactField Label="@L["Worker.MemoryMb"]" Value="@($"{_worker.Spec.MemoryMb:N0} MB")" />
+                        <FactField Label="@L["Worker.Gpu"]" Value="@_worker.Spec.GpuCount.ToString()" />
+                        <FactField Label="@L["Worker.Benchmark"]" Value="@_worker.Spec.BenchmarkScore.ToString("N2")" />
+                        <FactField Label="@L["Worker.Os"]" Value="@_worker.Spec.Os" />
+                        <FactField Label="@L["Worker.Version"]" Value="@_worker.Version" />
+                        <FactField Label="@L["Worker.Pqc"]" Value="@(_worker.SupportsPqc ? L["Common.Yes"].Value : L["Common.No"].Value)" />
+                        <FactField Label="@L["Worker.Tags"]" Value="@string.Join(", ", _worker.Tags)" />
+                        <FactField Label="@L["Worker.Registered"]" Value="@Fmt.Time(_worker.RegisteredUtc)" />
+                    </FieldGrid>
                 </FormSection>
 
                 <FormSection Title="@L["Worker.Detail.Section.Capabilities"]">
-                    <table class="simple-table">
-                        <thead><tr><th>@L["Job.JobType"]</th><th class="num">@L["Worker.MaxConcurrency"]</th><th class="num">@L["Worker.SpeedFactor"]</th></tr></thead>
-                        <tbody>
-                            @foreach (var c in _worker.Capabilities.OrderBy(c => c.JobType, StringComparer.Ordinal))
-                            {
-                                <tr><td>@c.JobType</td><td class="num">@c.MaxConcurrency</td><td class="num">@c.SpeedFactor.ToString("N2")</td></tr>
-                            }
-                        </tbody>
-                    </table>
+                    <AppGrid TItem="CapabilityRow" Items="_capabilities" KeyFieldName="@nameof(CapabilityRow.JobType)" Caption="@L["Worker.Detail.Section.Capabilities"]" ShowGroupPanel="false">
+                        <Columns>
+                            <DxGridDataColumn FieldName="@nameof(CapabilityRow.JobType)" Caption="@L["Job.JobType"]" SortIndex="0" SortOrder="GridColumnSortOrder.Ascending" />
+                            <DxGridDataColumn FieldName="@nameof(CapabilityRow.MaxConcurrency)" Caption="@L["Worker.MaxConcurrency"]" DisplayFormat="N0" Width="160px" />
+                            <DxGridDataColumn FieldName="@nameof(CapabilityRow.SpeedFactor)" Caption="@L["Worker.SpeedFactor"]" DisplayFormat="N2" Width="140px" />
+                        </Columns>
+                    </AppGrid>
                 </FormSection>
 
                 <FormSection Title="@L["Worker.Detail.Section.Jobs"]" Description="@L["Worker.Detail.JobsHint"]">
@@ -61,15 +59,12 @@
                     }
                     else
                     {
-                        <table class="simple-table">
-                            <thead><tr><th>@L["Job.Id"]</th><th>@L["Job.JobType"]</th><th>@L["Job.Status"]</th><th class="num">@L["Job.Priority"]</th><th>@L["Job.Started"]</th></tr></thead>
-                            <tbody>
-                                @foreach (var j in _jobs)
-                                {
-                                    <tr><td><a href="@($"jobs/{j.JobId}")">@Fmt.Short(j.JobId)</a></td><td>@j.JobType</td><td><JobStatusBadge Status="j.Status" /></td><td class="num">@j.Priority</td><td>@Fmt.Time(j.StartedUtc)</td></tr>
-                                }
-                            </tbody>
-                        </table>
+                        <AppGrid TItem="JobRow" Items="_jobs" KeyFieldName="@nameof(JobRow.JobId)" Caption="@L["Worker.Detail.Section.Jobs"]" ShowGroupPanel="false">
+                            <Columns><JobGridColumns /></Columns>
+                            <RowActions Context="row">
+                                <AppButton Text="@T["Common.View"]" Icon="eye" Size="ButtonSize.Small" Href="@($"jobs/{row.JobId}")" />
+                            </RowActions>
+                        </AppGrid>
                     }
                 </FormSection>
 
@@ -81,15 +76,16 @@
                         }
                         else
                         {
-                            <table class="simple-table">
-                                <thead><tr><th>@L["Job.JobType"]</th><th class="num">@L["Performance.Samples"]</th><th class="num">@L["Performance.Successes"]</th><th class="num">@L["Performance.Failures"]</th><th class="num">@L["Performance.Mean"]</th><th class="num">@L["Performance.StdDev"]</th></tr></thead>
-                                <tbody>
-                                    @foreach (var p in _performance)
-                                    {
-                                        <tr><td>@p.JobType</td><td class="num">@p.Samples.ToString("N0")</td><td class="num">@p.Successes.ToString("N0")</td><td class="num">@p.Failures.ToString("N0")</td><td class="num">@Fmt.Duration(p.MeanDurationMs)</td><td class="num">@Fmt.Duration(p.StdDevDurationMs)</td></tr>
-                                    }
-                                </tbody>
-                            </table>
+                            <AppGrid TItem="PerformanceRow" Items="_performance" KeyFieldName="@nameof(PerformanceRow.Key)" Caption="@L["Worker.Detail.Section.Performance"]" ShowGroupPanel="false">
+                                <Columns>
+                                    <DxGridDataColumn FieldName="@nameof(PerformanceRow.JobType)" Caption="@L["Job.JobType"]" />
+                                    <DxGridDataColumn FieldName="@nameof(PerformanceRow.Samples)" Caption="@L["Performance.Samples"]" DisplayFormat="N0" Width="110px" />
+                                    <DxGridDataColumn FieldName="@nameof(PerformanceRow.Successes)" Caption="@L["Performance.Successes"]" DisplayFormat="N0" Width="110px" />
+                                    <DxGridDataColumn FieldName="@nameof(PerformanceRow.Failures)" Caption="@L["Performance.Failures"]" DisplayFormat="N0" Width="110px" />
+                                    <DxGridDataColumn FieldName="@nameof(PerformanceRow.MeanMs)" Caption="@L["Performance.MeanMs"]" DisplayFormat="N0" Width="130px" />
+                                    <DxGridDataColumn FieldName="@nameof(PerformanceRow.StdDevMs)" Caption="@L["Performance.StdDev"]" DisplayFormat="N0" Width="130px" />
+                                </Columns>
+                            </AppGrid>
                         }
                     </FormSection>
                 </PermissionView>
@@ -111,8 +107,9 @@
 
     private readonly CancellationTokenSource _cts = new();
     private WorkerResponse? _worker;
-    private List<JobStatusResponse>? _jobs;
-    private List<PerformanceStat>? _performance;
+    private List<JobRow>? _jobs;
+    private List<PerformanceRow>? _performance;
+    private List<CapabilityRow> _capabilities = [];
     private RiskAssessment? _risk;
     private string? _riskError;
     private bool _notFound;
@@ -128,11 +125,12 @@
         var r = await Loaded<WorkerResponse>.FromAsync(() => Api.GetWorkerAsync(WorkerId, _cts.Token));
         (_worker, _notFound, _error) = (r.Value, r.NotFound, r.Error);
         if (_worker is null) return;
+        _capabilities = _worker.Capabilities.Select(c => new CapabilityRow(c)).ToList();
 
-        var jobs = Safe(async () => (await Api.ListJobsAsync(null, null, WorkerId, 0, 200, _cts.Token)).Items.Where(j => !Fmt.IsFinal(j.Status)).ToList());
+        var jobs = Safe(async () => (await Api.ListJobsAsync(null, null, WorkerId, 0, 200, _cts.Token)).Items.Where(j => !Fmt.IsFinal(j.Status)).Select(j => new JobRow(j, _worker.Name)).ToList());
         var perf = await Permissions.HasPermissionAsync(AppPermissions.InsightView)
-            ? Safe(async () => (await Api.GetPerformanceAsync(null, _cts.Token)).Where(p => p.WorkerId == WorkerId).OrderBy(p => p.JobType, StringComparer.Ordinal).ToList())
-            : Task.FromResult<List<PerformanceStat>?>(null);
+            ? Safe(async () => (await Api.GetPerformanceAsync(null, _cts.Token)).Where(p => p.WorkerId == WorkerId).OrderBy(p => p.JobType, StringComparer.Ordinal).Select(p => new PerformanceRow(p, _worker.Name)).ToList())
+            : Task.FromResult<List<PerformanceRow>?>(null);
         try
         {
             _risk = await Api.GetWorkerRiskAsync(WorkerId, _cts.Token);

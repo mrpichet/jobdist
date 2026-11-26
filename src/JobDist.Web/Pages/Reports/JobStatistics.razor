@@ -38,13 +38,13 @@
             @if (_report is { } r)
             {
                 <div class="page-stack">
-                    <div class="kpis" role="list">
-                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Submitted"]</span><span class="kpi__value">@r.Totals.Submitted.ToString("N0")</span></div>
-                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Succeeded"]</span><span class="kpi__value">@r.Totals.Succeeded.ToString("N0")</span></div>
-                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Failed"]</span><span class="kpi__value">@r.Totals.Failed.ToString("N0")</span></div>
-                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.SuccessRate"]</span><span class="kpi__value">@Fmt.Percent(r.Totals.SuccessRate)</span></div>
-                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.P95"]</span><span class="kpi__value">@Fmt.Duration(r.Totals.P95DurationMs)</span></div>
-                        <div class="kpi" role="listitem"><span class="kpi__label">@L["Stats.Throughput"]</span><span class="kpi__value">@r.Totals.ThroughputPerHour.ToString("N1")</span></div>
+                    <div class="stats" role="list">
+                        <StatCard Label="@L["Stats.Submitted"]" Value="@r.Totals.Submitted.ToString("N0")" Icon="send" />
+                        <StatCard Label="@L["Stats.Succeeded"]" Value="@r.Totals.Succeeded.ToString("N0")" Icon="check-circle" />
+                        <StatCard Label="@L["Stats.Failed"]" Value="@r.Totals.Failed.ToString("N0")" Icon="x-circle" />
+                        <StatCard Label="@L["Stats.SuccessRate"]" Value="@Fmt.Percent(r.Totals.SuccessRate)" Icon="bar-chart" />
+                        <StatCard Label="@L["Stats.P95"]" Value="@Fmt.Duration(r.Totals.P95DurationMs)" Icon="clock" />
+                        <StatCard Label="@L["Stats.Throughput"]" Value="@r.Totals.ThroughputPerHour.ToString("N1")" Icon="play" />
                     </div>
 
                     @if (_rows is { Count: > 1 } && r.GroupBy.Count == 1 && r.GroupBy[0] == "day")
