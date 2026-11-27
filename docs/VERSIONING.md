@@ -1,6 +1,6 @@
 # การเปลี่ยนเวอร์ชันระหว่างบริการ (Versioning and compatibility)
 
-ปรับปรุง 25 พฤศจิกายน 2569 · ใช้กับ JobDist 2.0
+ปรับปรุง 27 พฤศจิกายน 2569 · ใช้กับ JobDist 2.0
 
 เอกสารนี้ระบุว่าแต่ละช่องทางที่ JobDist คุยกับระบบอื่นมีเวอร์ชันอย่างไร การเปลี่ยนแบบไหนไม่กระทบผู้ใช้เดิม แบบไหนนับเป็น breaking change และขั้นตอนออกเวอร์ชันใหม่โดยไม่ให้บริการหยุด
 
@@ -56,14 +56,26 @@
 
 ## 4. นโยบายเวอร์ชันหลักของ REST API
 
-ตามที่ตกลงไว้ (Q20): breaking change ออกเป็น v2 และ **แทนที่ v1 ใน release เดียวกัน** ไม่เก็บ v1 ไว้ช่วงเปลี่ยนผ่าน ผลคือระบบอื่นและ SDK ทุกตัวต้องอัปเกรดพร้อมกับ server ในรอบนั้น
+ตามที่ตกลงไว้ (27 พ.ย. 2569, แทนคำตอบ Q20 เดิม): breaking change ออกเป็น v2 และ **เปิด v1 คู่กับ v2 ต่ออีก 1 release** (release ที่ออก v2)
+v1 ถูกติดป้าย deprecated และแจ้งวันเลิกใช้ แล้วจึงลบ v1 ใน release ถัดไป ระบบอื่น SDK และ Worker จึงทยอยอัปเกรดได้เองภายในช่วงนั้น ไม่ต้องอัปเกรดพร้อม server
 
-ขั้นตอนเมื่อออก v2:
+| release | v1 | v2 | alias `/api/...` |
+|---|---|---|---|
+| N (ปัจจุบัน) | ใช้งานปกติ | – | v1 |
+| N+1 (ออก v2) | ยังใช้ได้ แต่ deprecated: response มี `api-deprecated-versions: 1.0`, `Deprecation` และ `Sunset` (วันที่ปล่อย N+2 ตามแผน) | ใช้งานปกติ | v2 |
+| N+2 | ลบแล้ว (URL ได้ 404) | ใช้งานปกติ | v2 |
 
-1. เพิ่ม `[ApiVersion("2.0")]` และเปลี่ยน route เป็น `api/v{version:apiVersion}/...` (ทำไว้แล้ว) ลบ `ApiVersion("1.0")`
-2. เปลี่ยน prefix ใน `JobDist.Client` และ `JobDist.Worker.Sdk` เป็น `api/v2/` แล้วออก SDK เวอร์ชันหลักใหม่
-3. ตั้ง `JobDist:MinWorkerSdkVersion` เป็น SDK เวอร์ชันใหม่
-4. แจ้งเจ้าของระบบที่เรียก JobDist (ดูรายชื่อจาก metric `jobdist.api.calls`) ล่วงหน้าพร้อมวันที่ deploy
-5. alias `/api/...` จะชี้ไปที่เวอร์ชันล่าสุด (ตั้ง `DefaultApiVersion` เป็น 2.0)
+ขั้นตอนใน release N+1 (ออก v2):
 
-ถ้าภายหลังต้องการช่วงเปลี่ยนผ่าน Asp.Versioning รองรับการเปิด v1 คู่กับ v2 โดยติด `Deprecated = true` (response มี header `api-deprecated-versions`) และกำหนดวันเลิกใช้ (header `Sunset`) ได้โดยไม่ต้องเปลี่ยนโครงสร้าง
+1. controller ที่เปลี่ยนแบบ breaking: เพิ่ม `[ApiVersion("2.0")]` (route `api/v{version:apiVersion}/...` ทำไว้แล้ว) และติด `[ApiVersion("1.0", Deprecated = true)]` ให้ของเดิม
+   ถ้าพฤติกรรมต่างกันให้แยก action ด้วย `[MapToApiVersion]` ส่วน controller ที่ไม่เปลี่ยนให้รองรับทั้ง 1.0 และ 2.0
+2. เพิ่ม header `Deprecation` และ `Sunset` ให้ response ของ v1 (middleware ตามวันที่ใน config) เพื่อให้ระบบที่เรียกเขียน log เตือนได้ แบบเดียวกับที่ JobDist อ่านจาก AuthServer/MessageHub
+3. ออก `JobDist.Client` และ `JobDist.Worker.Sdk` เวอร์ชันหลักใหม่ที่เรียก `api/v2/` (SDK เก่ายังใช้ v1 ได้ตลอด release นี้)
+4. ตั้ง `DefaultApiVersion` เป็น 2.0 (alias `/api/...` ชี้ v2) และแจ้งเจ้าของระบบที่เรียก JobDist พร้อมวันเลิกใช้ v1
+5. ติดตาม metric `jobdist.api.calls` แยกตาม `api.version` และ `api.client` ว่าใครยังเรียก v1
+
+ขั้นตอนใน release N+2 (เลิก v1):
+
+1. ตรวจ `jobdist.api.calls` ว่าไม่มีการเรียก v1 แล้ว (ถ้ายังมี ให้แจ้งเจ้าของระบบหรือเลื่อนออกไปอีก release)
+2. ลบ `ApiVersion("1.0")` และโค้ดของ v1, ตั้ง `JobDist:MinWorkerSdkVersion` เป็น SDK ที่เรียก v2
+3. รัน `dotnet run --project tools/JobDist.ApiExport -- docs` แล้วอัปเดต `CLAUDE.md` และเอกสารที่เกี่ยวข้อง
