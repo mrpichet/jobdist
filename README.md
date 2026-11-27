@@ -6,7 +6,7 @@ business logic ชุดเดียวกันเปิดให้ใช้ 2
 - **REST Web API** (ASP.NET Core controllers, ใช้ไลบรารี built-in ของ Microsoft) ที่ `/api/*`
 - **MCP Server** ที่สร้างด้วย **Microsoft.Extensions.AI** (`AIFunctionFactory` → `McpServerTool`) ที่ `/mcp` (HTTP) หรือแบบ stdio
 
-และมี **เว็บคอนโซล Blazor WebAssembly (WebCommon.UI + DevExpress 26.1)** เข้าสู่ระบบผ่าน AuthServer สำหรับติดตามงาน Worker คิว การแจ้งเตือน และรายงาน (คู่มือ: [`docs/manuals/USER_MANUAL.md`](docs/manuals/USER_MANUAL.md), ติดตั้ง: [`docs/manuals/INSTALLATION.md`](docs/manuals/INSTALLATION.md))
+และมี **เว็บคอนโซล Blazor WebAssembly (WebCommon.UI + DevExpress 26.1)** เข้าสู่ระบบผ่าน AuthServer สำหรับติดตามงาน Worker คิว การแจ้งเตือน และรายงาน (คู่มือ: [`docs/manuals/USER_MANUAL.md`](docs/manuals/USER_MANUAL.md), ติดตั้ง: [`docs/manuals/INSTALLATION.md`](docs/manuals/INSTALLATION.md), เอกสารทั้งหมด: [`docs/README.md`](docs/README.md))
 
 > สรุป API ทั้งหมดสำหรับ Claude / AI ในโปรเจกต์อื่น: [`docs/API_EXPORT.md`](docs/API_EXPORT.md) (และ [`docs/api-export.json`](docs/api-export.json))
 
