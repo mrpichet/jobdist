@@ -1,8 +1,9 @@
 # คู่มือการติดตั้ง JobDist (Installation Manual)
 
-เวอร์ชัน 2.0 · ปรับปรุง 25 พฤศจิกายน 2569
+เวอร์ชัน 2.1 · ปรับปรุง 27 พฤศจิกายน 2569
 
-คู่มือนี้อธิบายการติดตั้ง JobDist Server (REST API + MCP + เว็บคอนโซล) พร้อมการเชื่อมต่อ AuthServer, LogServer, MessageHub และ RabbitMQ
+คู่มือนี้อธิบายการติดตั้ง JobDist Server (REST API + MCP + เว็บคอนโซล) และ Worker พร้อมการเชื่อมต่อ AuthServer, LogServer, MessageHub และ RabbitMQ
+แผนภาพการติดตั้งดู [DEPLOYMENT.md](../diagrams/DEPLOYMENT.md) การดูแลหลังติดตั้งดู [OPERATION_GUIDE.md](../guides/OPERATION_GUIDE.md)
 
 ---
 
@@ -11,7 +12,7 @@
 | ส่วน | หน้าที่ | จำเป็น |
 |---|---|---|
 | JobDist Server | API, MCP, เว็บคอนโซล (Blazor WebAssembly ฝังอยู่ใน server) ติดตั้งได้หลายเครื่องพร้อมกัน (active-active) | ✓ |
-| ฐานข้อมูล | PostgreSQL 15+ หรือ SQL Server 2019+ | ✓ |
+| ฐานข้อมูล | PostgreSQL 14+ (compose ใช้ 17) หรือ SQL Server 2019+ (compose overlay ใช้ 2022) | ✓ |
 | Worker | เครื่องประมวลผลที่ใช้ `JobDist.Worker.Sdk` | ✓ |
 | AuthServer | เข้าสู่ระบบและสิทธิ์ของเว็บคอนโซล | ✓ สำหรับเว็บ |
 | MessageHub | ส่งแจ้งเตือน | แนะนำ |
@@ -164,13 +165,13 @@ server ฟังที่ `127.0.0.1:8080` และ `127.0.0.1:8081` ให้�
 "Logging": { "LogServer": { "Enabled": true, "ServerUrls": "https://logserver.example.com", "Source": "jobdist", "MinimumLevel": "Information" } },
 "ClientLogging": { "Enabled": true, "MinimumLevel": "Warning" }
 ```
-API key ของ LogServer อ่านจาก environment variable `LOGSERVER_API_KEY` log จากเบราว์เซอร์ส่งผ่าน server (`POST /api/client-logs`) แล้วเข้า LogServer พร้อมรหัสผู้ใช้ ระบบไม่บันทึก token, รหัสผ่าน หรือ secret ลง log
+API key ของ LogServer อ่านจาก environment variable `LOGSERVER_API_KEY` log จากเบราว์เซอร์ส่งผ่าน server (`POST /api/v1/client-logs`) แล้วเข้า LogServer พร้อมรหัสผู้ใช้ ระบบไม่บันทึก token, รหัสผ่าน หรือ secret ลง log
 
 ### 7.6 ผู้ช่วย AI
 ```json
 "AgentChat": { "Enabled": true, "Provider": "OpenAI", "Endpoint": "", "Model": "<ชื่อโมเดล>", "ApiKey": "<จาก secret>", "MaxHistory": 20, "TimeoutSeconds": 60 }
 ```
-Provider อื่นที่เข้ากันได้กับ OpenAI API ให้ใส่ `Endpoint` ด้วย ผู้ช่วยใช้เครื่องมืออ่านอย่างเดียว ถ้าตั้งไม่ครบ ระบบปิดผู้ช่วยเองและซ่อนปุ่มในเว็บ
+`Provider` รองรับ `OpenAI` (รวมบริการที่เข้ากันได้กับ OpenAI API โดยใส่ `Endpoint`) ผู้ช่วยใช้เครื่องมืออ่านอย่างเดียว ถ้าตั้งไม่ครบ ระบบปิดผู้ช่วยเองและซ่อนปุ่มในเว็บ
 
 ### 7.7 อื่น ๆ
 - `JobDist:MinWorkerSdkVersion`: ปฏิเสธ Worker ที่ใช้ SDK เก่ากว่าเวอร์ชันนี้ (ว่าง = ไม่ตรวจ)
@@ -188,6 +189,27 @@ export Database__ConnectionString='...' AuthServer__Authority='https://auth.exam
 dotnet JobDist.Server.dll
 ```
 ติดตั้งเป็น service (systemd หรือ Windows Service) และให้ server ทุกตัวใช้ `JobDist:PayloadProtectionKey`, `Crypto:MlDsaPrivateSeed`, `Crypto:EcdsaPrivateKeyPkcs8` ชุดเดียวกัน กำหนด `JobDist:InstanceId` ไม่ซ้ำกันในแต่ละเครื่อง
+
+### 8.1 ติดตั้ง Worker
+
+Worker คือโปรแกรมของแต่ละทีมที่ใช้ `JobDist.Worker.Sdk` (ตัวอย่างอยู่ที่ `samples/JobDist.SampleWorker`)
+
+1. ขอ API key บทบาท Worker จากผู้ดูแล (ค่า SHA-256 ใส่ใน `Security:ApiKeys` ของ server)
+2. ตั้ง `JobDistWorker:ServerUrls` เป็น URL ของ server ทุกตัว (หรือ URL ของ gateway) และ `JobDistWorker:PinnedServerKeyId` ให้ตรงกับ `Crypto:KeyId` ของ server
+3. ใส่ API key ผ่าน environment variable `JobDistWorker__ApiKey`
+4. ติดตั้งเป็น service:
+
+   ```bash
+   dotnet publish samples/JobDist.SampleWorker -c Release -o /opt/jobdist-worker
+   # systemd: ExecStart=/usr/bin/dotnet /opt/jobdist-worker/JobDist.SampleWorker.dll
+   #          Environment=DOTNET_ENVIRONMENT=Production JobDistWorker__ApiKey=...   (หรือ EnvironmentFile ที่ chmod 600)
+   #          KillSignal=SIGTERM, TimeoutStopSec=30   (ให้ SDK ทำงานที่ค้างให้เสร็จและถอดตัวเอง)
+   ```
+
+   Docker: ใช้ `docker/Dockerfile.worker` เป็นแบบ (ใน compose คือ service `worker`, ปรับจำนวนด้วย `WORKER_REPLICAS`)
+5. ตรวจว่า Worker ขึ้นสถานะออนไลน์ในเว็บคอนโซล เมนู Worker
+
+Worker เรียกออกทาง HTTPS อย่างเดียว ไม่ต้องเปิด port ขาเข้า ตัวอย่าง config ทั้งหมดดู [USER_MANUAL.md หัวข้อ 11.4](USER_MANUAL.md#114-เป็น-worker-ด้วย-jobdistworkersdk)
 
 ## 9. ตรวจสอบหลังติดตั้ง
 

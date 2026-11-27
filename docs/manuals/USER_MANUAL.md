@@ -1,8 +1,9 @@
 # คู่มือการใช้งาน JobDist (User Manual)
 
-เวอร์ชัน 2.0 · ปรับปรุง 25 พฤศจิกายน 2569
+เวอร์ชัน 2.1 · ปรับปรุง 27 พฤศจิกายน 2569
 
-JobDist คือระบบจัดคิวและกระจายงาน (Job) ไปยังเครื่องประมวลผล (Worker) หลายเครื่อง คู่มือนี้อธิบายการใช้งานเว็บคอนโซลสำหรับผู้ดูแลและผู้ใช้งาน
+JobDist คือระบบจัดคิวและกระจายงาน (Job) ไปยังเครื่องประมวลผล (Worker) หลายเครื่อง คู่มือนี้อธิบายการใช้งานเว็บคอนโซลสำหรับผู้ดูแลและผู้ใช้งาน (หัวข้อ 1–10)
+และตัวอย่าง config สำหรับระบบอื่นที่จะส่งงาน รับงาน หรือส่ง log ผ่าน Appender (หัวข้อ 11)
 
 ---
 
@@ -203,3 +204,269 @@ JobDist คือระบบจัดคิวและกระจายงา
 | `jobdist.agent.use` | ผู้ช่วย AI |
 
 ตัวอย่างการจัดบทบาท: **ผู้ดูงาน** = dashboard.view, job.view, worker.view, insight.view, report.view · **ผู้ส่งงาน** = ผู้ดูงาน + job.create, job.edit, job.cancel · **ผู้ดูแลระบบงาน** = ทุกสิทธิ์
+
+## 11. ตัวอย่าง Config ให้ระบบอื่นเรียกใช้
+
+หัวข้อนี้สำหรับทีมพัฒนาของระบบอื่น ระบบอื่นเชื่อมกับ JobDist ได้ 4 แบบ และส่ง log เข้า LogServer กลางผ่าน Appender ได้ 2 แบบ
+
+| ต้องการ | ใช้ | ขอ API key role | หัวข้อ |
+|---|---|---|---|
+| ส่งงานและติดตามผล (.NET) | `JobDist.Client` | Submitter | 11.2 |
+| ส่งงานจากภาษาอื่น / script | REST `api/v1` | Submitter (ดูอย่างเดียว: Viewer) | 11.3 |
+| เป็นเครื่องประมวลผลงาน | `JobDist.Worker.Sdk` | Worker | 11.4 |
+| ให้ AI agent ใช้งาน | MCP | AiAgent | 11.5 |
+| ส่ง log ไป LogServer (.NET `ILogger`) | `Common.Logging` | API key ของ LogServer | 11.6 |
+| ส่ง log ไป LogServer (log4net) | `LogServer.Log4Net.LogServerAppender` | API key ของ LogServer | 11.7 |
+
+### 11.1 หลักทั่วไป
+
+- **ขอ API key** จากผู้ดูแล JobDist ตาม role ในตาราง ผู้ดูแลเก็บเฉพาะค่า SHA-256 ใน `Security:ApiKeys` ของ server (ดู INSTALLATION.md หัวข้อ 7.7)
+- **ห้ามใส่ API key ใน appsettings ที่ commit** ใส่ผ่าน environment variable หรือ secret store ตัวอย่างด้านล่างใช้ค่าว่างแล้วกำหนดผ่าน env เช่น
+  `JobDistClient__ApiKey`, `JobDistWorker__ApiKey`, `LOGSERVER_API_KEY`
+- **ใส่ URL ของ server ทุกตัว** (`ServerUrls`) SDK สลับไปตัวถัดไปเองเมื่อเครือข่ายขัดข้องหรือได้ 5xx
+- **เรียก `api/v1/` เสมอ** และไม่พังเมื่อเจอ field ที่ไม่รู้จัก (นโยบายเวอร์ชันดู [VERSIONING.md](../VERSIONING.md))
+- **ส่ง `idempotencyKey`** ทุกครั้งที่ส่งงาน เพื่อให้ส่งซ้ำได้โดยไม่เกิดงานซ้ำ (`JobDist.Client` สร้างให้เองถ้าไม่ใส่)
+- รับมือ **429 `queue_full`**: รอตาม header `Retry-After` (60 วินาที) แล้วส่งใหม่ด้วย key เดิม
+
+### 11.2 ส่งงานด้วย `JobDist.Client` (.NET)
+
+`appsettings.json` ของระบบที่ส่งงาน:
+
+```json
+{
+  "JobDistClient": {
+    "ServerUrls": [ "https://jobdist-a.example.local", "https://jobdist-b.example.local" ],
+    "ApiKey": "",
+    "Timeout": "00:00:30"
+  }
+}
+```
+
+```bash
+# ใส่ key ผ่าน environment variable (หรือ Azure Key Vault / user-secrets)
+export JobDistClient__ApiKey="<submitter API key>"
+```
+
+```csharp
+// Program.cs
+builder.Services.AddJobDistClient(builder.Configuration.GetSection("JobDistClient"));
+
+// ใช้งาน
+public sealed class InvoiceService(IJobDistClient jobDist)
+{
+    public async Task<Guid> RequestPdfAsync(Guid invoiceId, CancellationToken ct)
+    {
+        var response = await jobDist.SubmitAsync(new SubmitJobRequest(
+            JobType: "report.generate",
+            Payload: JsonSerializer.Serialize(new { invoiceId }),
+            Priority: 60,
+            IdempotencyKey: $"invoice-pdf-{invoiceId}",
+            Tags: ["invoice"]), ct);
+        return response.JobId;   // ติดตามด้วย GetAsync หรือ WaitForCompletionAsync
+    }
+}
+```
+
+ข้อผิดพลาดจาก server ได้เป็น `JobDistApiException` (`StatusCode`, `Message`) รายการ method ทั้งหมดดู [CLAUDE.md](../../CLAUDE.md#net-sdks)
+
+### 11.3 เรียก REST API โดยตรง (ภาษาใดก็ได้)
+
+```bash
+export JOBDIST_URL=https://jobdist-a.example.local
+export JOBDIST_API_KEY="<submitter API key>"
+
+# ส่งงาน
+curl -s -X POST "$JOBDIST_URL/api/v1/jobs" \
+  -H "X-Api-Key: $JOBDIST_API_KEY" -H "Content-Type: application/json" \
+  -d '{"jobType":"report.generate","payload":"{\"invoiceId\":\"6f1c...\"}","priority":60,"idempotencyKey":"invoice-pdf-6f1c"}'
+# {"jobId":"...","status":"Pending","duplicate":false}
+
+# ดูสถานะ
+curl -s "$JOBDIST_URL/api/v1/jobs/<jobId>" -H "X-Api-Key: $JOBDIST_API_KEY"
+
+# ส่งหลายงานพร้อมกัน (สูงสุด 5,000)
+curl -s -X POST "$JOBDIST_URL/api/v1/jobs/batch" -H "X-Api-Key: $JOBDIST_API_KEY" -H "Content-Type: application/json" \
+  -d '{"jobs":[{"jobType":"hash.sha256","payload":"{\"text\":\"a\"}"},{"jobType":"hash.sha256","payload":"{\"text\":\"b\"}"}]}'
+```
+
+ตัวอย่าง Python:
+
+```python
+import os, requests
+base = os.environ["JOBDIST_URL"]; headers = {"X-Api-Key": os.environ["JOBDIST_API_KEY"]}
+r = requests.post(f"{base}/api/v1/jobs", headers=headers, timeout=30,
+                  json={"jobType": "report.generate", "payload": '{"invoiceId":"6f1c"}', "idempotencyKey": "invoice-pdf-6f1c"})
+if r.status_code == 429:
+    retry_after = int(r.headers.get("Retry-After", "60"))   # คิวเต็ม: รอแล้วส่งใหม่ด้วย key เดิม
+r.raise_for_status()
+job_id = r.json()["jobId"]
+```
+
+JSON ใช้ camelCase, enum เป็นข้อความ (`"Pending"`), เวลาเป็น ISO-8601 UTC, ข้อผิดพลาดเป็น RFC 7807 problem details
+
+### 11.4 เป็น Worker ด้วย `JobDist.Worker.Sdk`
+
+`appsettings.json` ของ Worker:
+
+```json
+{
+  "JobDistWorker": {
+    "ServerUrls": [ "https://jobdist-a.example.local", "https://jobdist-b.example.local" ],
+    "ApiKey": "",
+    "WorkerName": "report-worker-01",
+    "MaxTotalConcurrency": 8,
+    "ConcurrencyOverrides": { "report.generate": 4 },
+    "Tags": [ "report", "dc1" ],
+    "PollWaitSeconds": 20,
+    "RequireSignatures": true,
+    "PinnedServerKeyId": "jobdist-prod",
+    "RequestTimeout": "00:00:15",
+    "UnregisterOnShutdown": true,
+    "ShutdownGracePeriod": "00:00:20"
+  }
+}
+```
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddJobDistWorker(builder.Configuration)      // อ่าน section "JobDistWorker"
+                .AddJobHandler<ReportGenerateHandler>();      // 1 handler ต่อ 1 job type
+await builder.Build().RunAsync();
+```
+
+- `PinnedServerKeyId` ต้องตรงกับ `Crypto:KeyId` ของ server (Worker ปฏิเสธงานที่ลงนามด้วย key อื่น)
+- Worker เรียกออกอย่างเดียว ไม่ต้องเปิด port ขาเข้า ติดตั้งเป็น Windows Service (`builder.Services.AddWindowsService()` จาก package `Microsoft.Extensions.Hosting.WindowsServices`), systemd หรือ container ได้
+- ตัวอย่าง handler ดู [DEVELOPER_GUIDE.md](../guides/DEVELOPER_GUIDE.md#52-เขียน-worker-ด้วย-jobdistworkersdk) และ `samples/JobDist.SampleWorker`
+
+### 11.5 ให้ AI agent ใช้ผ่าน MCP
+
+แบบ HTTP (Streamable HTTP, แนะนำ):
+
+```json
+{
+  "mcpServers": {
+    "jobdist": {
+      "type": "http",
+      "url": "https://jobdist-a.example.local/mcp",
+      "headers": { "X-Api-Key": "${JOBDIST_AI_AGENT_KEY}" }
+    }
+  }
+}
+```
+
+แบบ stdio (รันบนเครื่องที่เข้าถึงฐานข้อมูลของ JobDist ได้):
+
+```json
+{
+  "mcpServers": {
+    "jobdist": {
+      "command": "dotnet",
+      "args": [ "run", "--project", "/opt/jobdist/src/JobDist.McpServer" ],
+      "env": {
+        "Database__Provider": "PostgreSql",
+        "Database__ConnectionString": "Host=db.example.local;Database=jobdist;Username=jobdist_ro;Password=${JOBDIST_DB_PASSWORD}"
+      }
+    }
+  }
+}
+```
+
+tool ที่ส่ง/ยกเลิก/แก้งานจะแสดงเมื่อ server ตั้ง `Mcp:AllowSideEffects=true` เท่านั้น รายการ tool ดู [CLAUDE.md](../../CLAUDE.md#mcp-tools)
+
+### 11.6 ส่ง log ไป LogServer ด้วย `Common.Logging` (.NET `ILogger`)
+
+ใช้กับระบบ .NET ที่มี submodule `external/common` (JobDist เองใช้แบบนี้) ทุก log ที่เขียนผ่าน `ILogger` ถูกส่งเป็น batch ไป LogServer
+ถ้า LogServer ล่ม log ถูกพักใน spool บนดิสก์แล้วส่งภายหลัง
+
+```json
+{
+  "Logging": {
+    "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" },
+    "LogServer": {
+      "Enabled": true,
+      "ServerUrls": "https://log-a.example.local,https://log-b.example.local",
+      "ApiKeyEnvironmentVariable": "LOGSERVER_API_KEY",
+      "Source": "invoice-service",
+      "MinimumLevel": "Information",
+      "BatchSize": 1000,
+      "FlushIntervalMs": 1000,
+      "QueueCapacity": 100000,
+      "SpoolDirectory": "/var/spool/invoice-service/logspool",
+      "MaxSpoolFiles": 1000,
+      "UseGzip": true,
+      "TimeoutMs": 10000
+    }
+  }
+}
+```
+
+```csharp
+builder.Logging.AddLogServer(builder.Configuration);   // อ่าน Logging:LogServer
+```
+
+```bash
+export LOGSERVER_API_KEY="<LogServer API key>"   # ไม่ใส่ key ใน appsettings
+```
+
+| ค่า | ความหมาย |
+|---|---|
+| `ServerUrls` | URL ของ LogServer คั่นด้วยจุลภาค สลับตัวถัดไปเมื่อส่งไม่ได้ |
+| `ApiKeyEnvironmentVariable` | ชื่อ env ที่เก็บ API key (ค่าเริ่มต้น `LOGSERVER_API_KEY`) ใช้แทน `ApiKey` |
+| `Source` | ชื่อระบบที่แสดงใน LogServer (JobDist ใช้ `jobdist`) |
+| `MinimumLevel` | ระดับต่ำสุดที่ส่ง |
+| `BatchSize`, `FlushIntervalMs` | ส่งเมื่อครบจำนวนหรือครบเวลา |
+| `QueueCapacity` | จำนวน log ที่พักในหน่วยความจำ |
+| `SpoolDirectory`, `MaxSpoolFiles` | ที่พัก log บนดิสก์เมื่อส่งไม่ได้ (ต้องเขียนได้) |
+| `UseGzip`, `TimeoutMs` | บีบอัดข้อมูล, timeout ต่อคำขอ |
+
+### 11.7 ส่ง log ไป LogServer ด้วย log4net Appender
+
+ใช้กับระบบที่ใช้ log4net อยู่แล้ว (.NET Framework หรือ .NET) ติดตั้ง package `LogServer.Log4Net` จาก repo LogServer แล้วเพิ่ม appender ใน `log4net.config`:
+
+```xml
+<log4net>
+  <appender name="LogServer" type="LogServer.Log4Net.LogServerAppender, LogServer.Log4Net">
+    <serverUrls value="https://log-a.example.local,https://log-b.example.local" />
+    <apiKeyEnvironmentVariable value="LOGSERVER_API_KEY" />
+    <source value="InvoiceApp" />
+    <batchSize value="1000" />
+    <flushIntervalMs value="500" />
+    <queueCapacity value="200000" />
+    <spoolDirectory value="C:\ProgramData\InvoiceApp\logspool" />
+    <useGzip value="true" />
+    <threshold value="INFO" />
+  </appender>
+
+  <root>
+    <level value="INFO" />
+    <appender-ref ref="LogServer" />
+  </root>
+</log4net>
+```
+
+```csharp
+// เริ่มต้น log4net
+log4net.Config.XmlConfigurator.ConfigureAndWatch(new FileInfo("log4net.config"));
+
+// ใส่ข้อมูลประกอบที่ appender อ่านไปเป็น field ของ LogServer
+log4net.LogicalThreadContext.Properties["UserId"] = userId;
+log4net.LogicalThreadContext.Properties["CorrelationId"] = correlationId;
+log4net.LogicalThreadContext.Properties["Action"] = "CreateInvoice";
+```
+
+Appender อ่าน context property `UserId`, `Action`, `ClientIp`, `SessionId`, `CorrelationId`, `TraceId` ใส่ค่าเหล่านี้เพื่อค้นหา log ข้ามระบบได้
+ส่วนตัวเลือกอื่นของ appender ดู README ของ repo LogServer
+
+**ข้อห้าม**: อย่า log รหัสผ่าน, token, API key, ข้อมูลส่วนบุคคล หรือ payload ที่ส่งแบบ `sensitive`
+
+## 12. เอกสารที่เกี่ยวข้อง
+
+| เอกสาร | เนื้อหา |
+|---|---|
+| [INSTALLATION.md](INSTALLATION.md) | การติดตั้งและตั้งค่า server |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | สถาปัตยกรรม |
+| [ER_DIAGRAM.md](../diagrams/ER_DIAGRAM.md), [DATAFLOW.md](../diagrams/DATAFLOW.md), [DEPLOYMENT.md](../diagrams/DEPLOYMENT.md) | แผนภาพ |
+| [DEVELOPER_GUIDE.md](../guides/DEVELOPER_GUIDE.md) | สำหรับนักพัฒนา |
+| [OPERATION_GUIDE.md](../guides/OPERATION_GUIDE.md) | สำหรับผู้ดูแลระบบ |
+| [TRACEABILITY.md](../TRACEABILITY.md) | ความสัมพันธ์ หน้าจอ ↔ REST API ↔ Class ↔ Table |
+| [CLAUDE.md](../../CLAUDE.md), [API_EXPORT.md](../API_EXPORT.md) | รายการ API ทั้งหมด |
