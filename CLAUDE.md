@@ -16,7 +16,7 @@ after changing the API, then update this file if an endpoint, tool or SDK member
 - **Versioning**: routes are `api/v1/...`. The unversioned `api/...` alias is the same v1 endpoint (header `api-version: 1.0`
   or `?api-version=1.0` also work; an unknown version is 404 in the URL, 400 in header/query). New clients use `api/v1/`.
   The SDKs pin `api/v1/` and send `User-Agent: JobDist.Client/x.y.z` or `JobDist.Worker.Sdk/x.y.z`; metric `jobdist.api.calls`
-  (tags `api.version`, `api.client`) shows who still calls a version. A breaking change ships as v2 and replaces v1.
+  (tags `api.version`, `api.client`) shows who still calls a version. A breaking change ships as v2; v1 stays (deprecated, with `Sunset`) for that one release and is removed in the next.
   Compatible vs breaking rules (adding an exported enum value is breaking for old SDKs), rolling-upgrade order and the
   per-interface map (RabbitMQ type `jobdist.alert.v1`, AuthServer proxy to `/api/v1`, MessageHub `ApiBasePath` = `api/v1`): [`docs/VERSIONING.md`](docs/VERSIONING.md).
   Upstream `Deprecation`/`Sunset` headers from AuthServer and MessageHub are logged once a day per path (`UpstreamVersionMonitor`).
